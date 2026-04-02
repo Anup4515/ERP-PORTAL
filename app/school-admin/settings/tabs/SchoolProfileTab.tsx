@@ -59,7 +59,12 @@ export default function SchoolProfileTab() {
       const res = await fetch("/api/partner/profile");
       if (!res.ok) throw new Error("Failed to fetch profile");
       const json = await res.json();
-      setForm(json.data);
+      const profile = json.data;
+      const cleaned: Record<string, string> = {};
+      for (const key of Object.keys(profile)) {
+        cleaned[key] = profile[key] ?? "";
+      }
+      setForm(cleaned as unknown as Partner);
     } catch {
       setBanner({ type: "error", message: "Failed to load profile. Please try again." });
     } finally {
@@ -106,8 +111,6 @@ export default function SchoolProfileTab() {
         const json = await res.json().catch(() => null);
         throw new Error(json?.error || "Failed to update profile");
       }
-      const json = await res.json();
-      setForm(json.data);
       setBanner({ type: "success", message: "Profile updated successfully." });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to update profile. Please try again.";

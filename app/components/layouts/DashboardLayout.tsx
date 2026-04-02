@@ -68,6 +68,7 @@ const teacherNav: NavItem[] = [
     href: "/teacher/attendance",
     icon: ClipboardDocumentCheckIcon,
   },
+  { label: "Calendar", href: "/teacher/calendar", icon: CalendarDaysIcon },
   { label: "Marks", href: "/teacher/marks", icon: ChartBarIcon },
   { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
   { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },

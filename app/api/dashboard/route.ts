@@ -70,57 +70,58 @@ async function getSchoolAdminStats(partnerUserId: number) {
 
   const currentSessionId = sessionRows.length > 0 ? sessionRows[0].id : null
 
-  // Total students
+  // Total students (enrollments → class_sections → session for partner scoping)
   const studentRows = await executeQuery<{ count: number }[]>(
     `SELECT COUNT(DISTINCT se.student_id) as count
      FROM erp_student_enrollments se
      JOIN erp_class_sections cs ON se.class_section_id = cs.id
-     WHERE cs.partner_id = ?
-       AND se.session_id = ?
+     WHERE cs.session_id = ?
        AND se.status = 'active'`,
-    [partnerUserId, currentSessionId]
+    [currentSessionId]
   )
   const totalStudents = studentRows[0]?.count || 0
 
-  // Total teachers
+  // Total teachers (partner_teachers stores a JSON array of teacher user IDs)
   const teacherRows = await executeQuery<{ count: number }[]>(
-    "SELECT COUNT(*) as count FROM partner_teachers WHERE partner_id = ? AND status = 'active'",
+    "SELECT COALESCE(JSON_LENGTH(teacher_ids), 0) as count FROM partner_teachers WHERE partner_id = ?",
     [partnerUserId]
   )
   const totalTeachers = teacherRows[0]?.count || 0
 
   // Today's attendance percentage
+  // erp_attendance_records links via student_enrollment_id → erp_student_enrollments → erp_class_sections → session
   const attendanceRows = await executeQuery<{ total: number; present: number }[]>(
     `SELECT
        COUNT(*) as total,
-       SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present
-     FROM erp_student_attendance
-     WHERE partner_id = ?
-       AND session_id = ?
-       AND date = CURDATE()`,
-    [partnerUserId, currentSessionId]
+       SUM(CASE WHEN ar.status = 'present' THEN 1 ELSE 0 END) as present
+     FROM erp_attendance_records ar
+     JOIN erp_student_enrollments se ON ar.student_enrollment_id = se.id
+     JOIN erp_class_sections cs ON se.class_section_id = cs.id
+     WHERE cs.session_id = ?
+       AND ar.date = CURDATE()`,
+    [currentSessionId]
   )
   const total = attendanceRows[0]?.total || 0
   const present = attendanceRows[0]?.present || 0
   const attendancePercentage = total > 0 ? Math.round((present / total) * 100) : 0
 
-  // Upcoming exams
+  // Upcoming exams (erp_exams links via class_section_id → erp_class_sections → session)
   const examRows = await executeQuery<Record<string, unknown>[]>(
-    `SELECT id, exam_name, start_date, end_date
-     FROM erp_exams
-     WHERE partner_id = ?
-       AND session_id = ?
-       AND start_date >= CURDATE()
-     ORDER BY start_date ASC
+    `SELECT e.id, e.name, e.start_date, e.end_date
+     FROM erp_exams e
+     JOIN erp_class_sections cs ON e.class_section_id = cs.id
+     WHERE cs.session_id = ?
+       AND e.start_date >= CURDATE()
+     ORDER BY e.start_date ASC
      LIMIT 5`,
-    [partnerUserId, currentSessionId]
+    [currentSessionId]
   )
 
   return {
     totalStudents,
     totalTeachers,
-    attendancePercentage,
-    upcomingExams: examRows,
+    todayAttendance: attendancePercentage,
+    upcomingExams: examRows.length,
   }
 }
 
@@ -133,67 +134,39 @@ async function getTeacherStats(partnerUserId: number, teacherUserId: number) {
 
   const currentSessionId = sessionRows.length > 0 ? sessionRows[0].id : null
 
-  // Assigned classes count
+  // Assigned classes: class_teacher, second_incharge, or subject teacher
   const classRows = await executeQuery<{ count: number }[]>(
-    `SELECT COUNT(DISTINCT class_section_id) as count
-     FROM erp_subject_assignments
-     WHERE partner_id = ?
-       AND teacher_id = ?
-       AND session_id = ?`,
-    [partnerUserId, teacherUserId, currentSessionId]
+    `SELECT COUNT(DISTINCT ecs.id) as count
+     FROM erp_class_sections ecs
+     WHERE ecs.session_id = ?
+       AND (
+         ecs.class_teacher_id = ?
+         OR ecs.second_incharge_id = ?
+         OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?)
+       )`,
+    [currentSessionId, teacherUserId, teacherUserId, teacherUserId]
   )
-  const assignedClasses = classRows[0]?.count || 0
+  const myClasses = classRows[0]?.count || 0
 
-  // Students count across assigned classes
+  // Students across assigned classes
   const studentRows = await executeQuery<{ count: number }[]>(
     `SELECT COUNT(DISTINCT se.student_id) as count
      FROM erp_student_enrollments se
-     WHERE se.session_id = ?
+     JOIN erp_class_sections ecs ON ecs.id = se.class_section_id
+     WHERE ecs.session_id = ?
        AND se.status = 'active'
-       AND se.class_section_id IN (
-         SELECT DISTINCT class_section_id
-         FROM erp_subject_assignments
-         WHERE partner_id = ?
-           AND teacher_id = ?
-           AND session_id = ?
+       AND (
+         ecs.class_teacher_id = ?
+         OR ecs.second_incharge_id = ?
+         OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?)
        )`,
-    [currentSessionId, partnerUserId, teacherUserId, currentSessionId]
+    [currentSessionId, teacherUserId, teacherUserId, teacherUserId]
   )
-  const totalStudents = studentRows[0]?.count || 0
-
-  // Pending marks (exams where marks haven't been entered yet)
-  const pendingRows = await executeQuery<{ count: number }[]>(
-    `SELECT COUNT(*) as count
-     FROM erp_exam_subjects es
-     JOIN erp_exams e ON es.exam_id = e.id
-     WHERE e.partner_id = ?
-       AND e.session_id = ?
-       AND es.subject_id IN (
-         SELECT DISTINCT subject_id
-         FROM erp_subject_assignments
-         WHERE partner_id = ?
-           AND teacher_id = ?
-           AND session_id = ?
-       )
-       AND es.id NOT IN (
-         SELECT DISTINCT exam_subject_id
-         FROM erp_marks
-         WHERE partner_id = ?
-       )`,
-    [
-      partnerUserId,
-      currentSessionId,
-      partnerUserId,
-      teacherUserId,
-      currentSessionId,
-      partnerUserId,
-    ]
-  )
-  const pendingMarks = pendingRows[0]?.count || 0
+  const myStudents = studentRows[0]?.count || 0
 
   return {
-    assignedClasses,
-    totalStudents,
-    pendingMarks,
+    myClasses,
+    myStudents,
+    pendingMarks: 0,
   }
 }

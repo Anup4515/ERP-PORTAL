@@ -95,7 +95,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@school.com"
+              placeholder="Enter your email"
               className="block w-full rounded-xl border border-gray-200 bg-gray-50/50 py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-400 transition-all duration-200 focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
           </div>
@@ -139,14 +139,14 @@ export default function LoginPage() {
         </div>
 
         {/* Forgot Password Link */}
-        <div className="flex justify-end">
+        {/* <div className="flex justify-end">
           <Link
             href="/forgot-password"
             className="text-sm font-medium text-primary-600 hover:text-primary-500 transition-colors"
           >
             Forgot Password?
           </Link>
-        </div>
+        </div> */}
 
         {/* Submit Button */}
         <button

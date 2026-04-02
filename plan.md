@@ -429,40 +429,44 @@ const TEACHER_SIDEBAR = [
 ### 3.1 Teacher Management (school_admin only)
 
 **APIs:**
-- `GET /api/teachers` — List teachers: join `users` + `teachers` + `partner_teachers` where `partner_id = ?`
-- `POST /api/teachers` — Create teacher: insert into `users` (role_id=5) + update `partner_teachers` JSON + insert `teachers`
-- `GET /api/teachers/:id` — Teacher profile + class/subject assignments from `erp_class_sections` + `erp_subjects`
-- `PUT /api/teachers/:id` — Update teacher info
-- `DELETE /api/teachers/:id` — Deactivate
-- `GET /api/teachers/:id/assignments` — Assignments via `erp_class_sections` (class_teacher_id, second_incharge_id) + `erp_subjects` (teacher_id)
-- `PUT /api/teachers/:id/assignments` — Update assignments
+- [x] `GET /api/teachers` — List teachers: join `users` + `teachers` + `partner_teachers` where `partner_id = ?`
+- [x] `POST /api/teachers` — Create teacher: insert into `users` (role_id=5) + update `partner_teachers` JSON + insert `teachers`
+- [x] `GET /api/teachers/:id` — Teacher profile + class/subject assignments from `erp_class_sections` + `erp_subjects`
+- [x] `PUT /api/teachers/:id` — Update teacher info
+- [x] `DELETE /api/teachers/:id` — Deactivate
+- [x] `GET /api/teachers/:id/assignments` — Assignments via `erp_class_sections` (class_teacher_id, second_incharge_id) + `erp_subjects` (teacher_id)
+- [x] `PUT /api/teachers/:id/assignments` — Update assignments
 
 **Pages:**
-- [ ] Teacher List (`/school-admin/teachers`) — DataTable with name, assigned classes, subjects
-- [ ] Teacher Detail (`/school-admin/teachers/[id]`) — Profile, edit form, class/subject assignment manager
+- [x] Teacher List (`/school-admin/teachers`) — DataTable with name, search, add/edit/delete modals
+- [x] Teacher Detail (`/school-admin/teachers/[id]`) — Profile view/edit, class assignments table, subject assignments table
+- [x] **Add Assignment UI** — Teacher detail page has "Add Assignment" button/modal to assign teacher to a class-section (class_teacher / second_incharge role) and "Assign Subject" modal to assign subjects. Includes remove buttons on both tables.
 
 ### 3.2 Student Management
 
 **APIs:**
-- `GET /api/students` — List: join `students` + `erp_student_enrollments` + `erp_class_sections` + `erp_sessions` where `partner_id = ?`, filter by class/section
-- `POST /api/students` — Create student + enrollment: insert into `students` + `erp_student_enrollments`
-- `GET /api/students/:id` — Profile + enrollment history + attendance/marks summary
-- `PUT /api/students/:id` — Update student info
-- `DELETE /api/students/:id` — Soft delete (set status = inactive)
-- `GET /api/students/:id/enrollments` — Enrollment history across sessions
-- `POST /api/students/:id/enrollments` — Enroll in class-section (via `erp_student_enrollments`)
-- `PUT /api/enrollments/:id` — Update roll number, status
-- `DELETE /api/enrollments/:id` — Remove enrollment
-- `POST /api/students/import` — Bulk CSV/Excel import
-- `GET /api/students/export` — CSV export
+- [x] `GET /api/students` — List: join `students` + `erp_student_enrollments` + `erp_class_sections` + `erp_sessions` where `partner_id = ?`, filter by class/section
+- [x] `POST /api/students` — Create student + enrollment: insert into `students` + `erp_student_enrollments`
+- [x] `GET /api/students/:id` — Profile + enrollment history
+- [x] `PUT /api/students/:id` — Update student info
+- [x] `DELETE /api/students/:id` — Soft delete (set status = inactive)
+- [x] `GET /api/students/:id/enrollments` — Enrollment history across sessions
+- [x] `POST /api/students/:id/enrollments` — Enroll in class-section (via `erp_student_enrollments`)
+- [x] `PUT /api/enrollments/:id` — Update roll number, status
+- [x] `DELETE /api/enrollments/:id` — Remove enrollment
+- [x] `POST /api/students/import` — Bulk CSV/Excel import
+- [x] `GET /api/students/export` — CSV export
 
 **Pages:**
-- [ ] Student List (`/students`) — DataTable with search, filter by class-section, pagination
-- [ ] Student Detail (`/students/[id]`) — Profile, enrollment, attendance/marks tabs
-- [ ] Bulk Import — CSV upload with preview and validation
+- [x] Student List (`/school-admin/students`) — DataTable with search, filter by class-section, pagination, add student modal, delete
+- [x] Student Detail (`/school-admin/students/[id]`) — Profile (view/edit), Enrollments tab with add enrollment modal
+- [x] Bulk Import — CSV upload with preview and validation
+- [x] Export CSV — Download student list as CSV
 
 ### Phase 3 Deliverable
 > Admin can manage teachers with class/subject assignments. Students can be added, enrolled in class-sections, and bulk imported.
+>
+> **Complete.** All Phase 3 features implemented.
 
 ---
 
@@ -473,38 +477,85 @@ const TEACHER_SIDEBAR = [
 ### 4.1 Class Calendar
 
 **APIs:**
-- `GET /api/calendar` — `SELECT * FROM erp_calendar_days WHERE class_section_id = ? AND date BETWEEN ? AND ?`
-- `POST /api/calendar/generate` — Auto-generate days for a session+class-section (Sundays = holidays)
-- `PUT /api/calendar/holidays` — Bulk toggle holidays (array of `{ date, is_holiday, holiday_reason }`)
-- `PUT /api/calendar/:id` — Update single day
+- [x] `GET /api/calendar` — `SELECT * FROM erp_calendar_days WHERE class_section_id = ? AND date BETWEEN ? AND ?`
+- [x] `POST /api/calendar/generate` — Auto-generate days for a session+class-section (Sundays = holidays, optional Saturdays)
+- [x] `PUT /api/calendar/holidays` — Bulk toggle holidays (array of `{ date, is_holiday, holiday_reason }`)
+- [x] `PUT /api/calendar/:id` — Update single day
 
 **Pages:**
-- [ ] Calendar View — Month grid showing working/holiday days per class-section
-- [ ] Auto-generate on session creation (Sundays pre-marked as holidays)
-- [ ] "Mark All Saturdays as Holiday" toggle
-- [ ] "Mark Week as Holiday" — select date range + reason
-- [ ] Monthly summary: total days, holidays, working days
+- [x] Calendar View (`/school-admin/calendar`) — Month grid showing working/holiday days per class-section
+- [x] Auto-generate with optional "mark Saturdays as holiday" checkbox
+- [x] Click any day to toggle holiday/working with reason
+- [x] "Mark All Saturdays as Holiday" button
+- [x] Monthly summary: total days, holidays, working days
 
 ### 4.2 Attendance System
 
 **APIs:**
-- `GET /api/attendance?class_section_id=&date=` — Daily attendance: join `erp_attendance_records` + `erp_student_enrollments`
-- `POST /api/attendance/bulk` — Bulk mark/update attendance for a class-section+date
-- `GET /api/attendance/monthly?class_section_id=&month=` — Monthly grid (students x days)
-- `GET /api/attendance/summary?student_id=&type=monthly|yearly` — Per-student attendance %
+- [x] `GET /api/attendance?class_section_id=&date=` — Daily attendance: join `erp_attendance_records` + `erp_student_enrollments`
+- [x] `POST /api/attendance/bulk` — Bulk mark/update attendance for a class-section+date
+- [x] `GET /api/attendance/monthly?class_section_id=&month=` — Monthly grid (students x days)
+- [x] `GET /api/attendance/summary?class_section_id=&type=monthly|yearly` — Per-student attendance %
 
 **Pages:**
-- [ ] Daily Entry (`/attendance`) — Select date + class-section:
+- [x] Daily Entry (`/school-admin/attendance`) — Select date + class-section:
   - **"Mark All Present"** — sets all to `present` in one click
-  - Toggle individual students to `absent`, `late`, or `half_day`
-  - Color-coded rows: green (present), red (absent), yellow (late)
+  - Toggle individual students via P/A/L/HD buttons
+  - Color-coded rows: green (present), red (absent), yellow (late), blue (half day)
   - Bulk save in one API call
-- [ ] Monthly Grid (`/attendance/monthly`) — Calendar-style view (students x days), color-coded
-- [ ] Summary (`/attendance/summary`) — Per-student monthly/yearly percentage
-- [ ] Prevent marking attendance on holidays (check `erp_calendar_days`)
+- [x] Monthly Grid (`/school-admin/attendance/monthly`) — Students x days grid, color-coded dots
+  - Sticky student name column, holiday columns grayed out
+  - Legend for status colors
+- [x] Summary table on monthly page — Per-student present/absent/late/half_day counts + percentage
+  - Color-coded percentage: green (>90%), yellow (75-90%), red (<75%)
+- [x] Prevent marking attendance on holidays (API checks `erp_calendar_days`)
+
+admin can see monthly grid of attendence classwise
+teacher can only insert entries of the class attendence which is assigned.
+
+ Attendance
+
+#### Daily Attendance Entry
+- **Planned Workflow:**
+  1. Select Date, Class, and Section
+  2. See list of all students in that class
+  3. Click "Mark All Present" — sets everyone to P (Present)
+  4. Manually toggle individual students to A (Absent), L (Late), or H (Half-day)
+  5. Click "Save Attendance"
+- **Color coding:** Green = Present, Red = Absent, Yellow = Late, Blue = Half-day
+- **Holiday check:** If the selected date is marked as a holiday in the calendar, attendance will not be markable
+
+#### Monthly Attendance Grid
+- **What it will show:** A calendar-style grid where:
+  - Rows = Students
+  - Columns = Days of the month (1, 2, 3... 31)
+  - Each cell will show a colored circle (Green=P, Red=A, Yellow=L, Gray=Holiday)
+  - Sticky first column so student names are always visible when scrolling
+- **Useful for:** Quick visual overview of the entire month's attendance for a class
+
+#### Attendance Summary
+- **What it will show:** Per-student attendance statistics
+- **Columns:** Student Name, Total Days, Present, Absent, Late, Half-Day, Percentage
+- **Color coding:** Green (>90%), Yellow (75-90%), Red (<75%) for attendance percentage
+
+---
+
+ Calendar
+
+- **What it will show:** A monthly calendar view for the academic session
+- **Planned Features:**
+  - **Generate Calendar** — Will create all 365 days for the session. Sundays will be automatically marked as holidays
+  - **Mark All Saturdays** — One-click to mark all Saturdays as holidays
+  - **Click any day** — Will open a popup to toggle between Working Day and Holiday, with an optional reason (e.g., "Diwali", "Republic Day")
+  - **Monthly summary** at bottom: Total Days, Holidays, Working Days
+  - Navigate between months using Prev/Next buttons
+  - Select different academic sessions from dropdown
+- **Connection to Attendance:** Days marked as holidays will appear as gray non-editable cells in the attendance grid. Teachers will not be able to mark attendance on holidays.
+
+---
 
 ### Phase 4 Deliverable
-> Calendar with holiday management. Daily attendance with "mark all present" flow. Monthly grid and summary reports.
+> **Complete.** Calendar with holiday management. Daily attendance with "mark all present" flow. Monthly grid and summary reports.
 
 ---
 

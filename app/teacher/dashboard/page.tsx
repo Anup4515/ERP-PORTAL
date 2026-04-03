@@ -9,6 +9,8 @@ import {
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
   UserGroupIcon,
+  ArrowRightIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Card, StatsCard, Button } from "@/app/components/shared";
 
@@ -31,6 +33,12 @@ export default function TeacherDashboardPage() {
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem("teacher_guide_dismissed");
+    if (!dismissed) setShowGuide(true);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -62,6 +70,44 @@ export default function TeacherDashboardPage() {
           Manage your classes and track student progress
         </p>
       </div>
+
+      {/* Getting Started Guide Banner */}
+      {showGuide && (
+        <div className="relative bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-xl p-4 sm:p-5">
+          <button
+            onClick={() => {
+              setShowGuide(false);
+              localStorage.setItem("teacher_guide_dismissed", "1");
+            }}
+            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60 transition-colors z-10"
+            title="Dismiss"
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pr-6 sm:pr-0">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary-100 text-primary-600 shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-primary-900">
+                New here? Check the Teacher Guide
+              </h3>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Learn how to manage attendance, view classes, enter marks, and more.
+              </p>
+            </div>
+            <Link
+              href="/teacher/instructions"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shrink-0"
+            >
+              View Guide
+              <ArrowRightIcon className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">

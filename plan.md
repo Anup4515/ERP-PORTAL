@@ -602,7 +602,7 @@ teacher can only insert entries of the class attendence which is assigned.
 - [ ] Stats (`/marks/stats`) — Class statistics, rank computation
 
 ### Phase 5 Deliverable
-> Complete exam workflow. Exams with scheduling, marks entry with auto-grading. Class statistics and student performance tracking.
+> **Complete.** Exam CRUD with scheduling, marks entry with auto-grading, class statistics, student rankings. Both admin and teacher views.
 
 ---
 

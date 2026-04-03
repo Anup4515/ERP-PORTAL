@@ -338,7 +338,7 @@ export default function CalendarPage() {
                 {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="min-h-[80px] md:min-h-[100px] border-b border-r border-gray-100 bg-gray-50/50"
+                    className="min-h-[50px] sm:min-h-[80px] md:min-h-[100px] border-b border-r border-gray-100 bg-gray-50/50"
                   />
                 ))}
                 {/* Day cells */}
@@ -352,7 +352,7 @@ export default function CalendarPage() {
                       <div
                         key={d}
                         onClick={() => dayData && handleDayClick(dayData)}
-                        className={`min-h-[80px] md:min-h-[100px] border-b border-r border-gray-100 p-2 transition-colors ${
+                        className={`min-h-[50px] sm:min-h-[80px] md:min-h-[100px] border-b border-r border-gray-100 p-2 transition-colors ${
                           dayData ? "cursor-pointer" : "cursor-default"
                         } ${
                           isHoliday

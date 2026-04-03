@@ -68,7 +68,17 @@ const emptyAddForm = {
   guardian_email: "",
 };
 
-export default function TeacherStudentsPage() {
+import { Suspense } from "react";
+
+export default function TeacherStudentsWrapper() {
+  return (
+    <Suspense fallback={<div className="animate-pulse h-72 bg-gray-100 rounded-xl" />}>
+      <TeacherStudentsPage />
+    </Suspense>
+  );
+}
+
+function TeacherStudentsPage() {
   const searchParams = useSearchParams();
   const preselected = searchParams.get("class_section_id") || "";
 

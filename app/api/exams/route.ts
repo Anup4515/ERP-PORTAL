@@ -1,0 +1,147 @@
+import { NextResponse } from "next/server"
+import { auth } from "@/app/lib/auth"
+import { executeQuery, executeTransaction } from "@/app/lib/db"
+
+export async function GET(request: Request) {
+  try {
+    const session = await auth()
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const school_id = session.user.school_id
+    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
+
+    const partnerRows = await executeQuery<{ user_id: number }[]>(
+      "SELECT user_id FROM partners WHERE id = ?", [school_id]
+    )
+    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const partnerUserId = partnerRows[0].user_id
+
+    const { searchParams } = new URL(request.url)
+    const classSectionId = searchParams.get("class_section_id")
+
+    let whereExtra = ""
+    const params: any[] = [partnerUserId]
+
+    if (classSectionId) {
+      whereExtra = " AND e.class_section_id = ?"
+      params.push(classSectionId)
+    }
+
+    // Auto-update statuses based on today's date before fetching
+    await executeQuery(
+      `UPDATE erp_exams e
+       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
+       JOIN erp_sessions es ON es.id = ecs.session_id
+       SET e.status = CASE
+         WHEN e.end_date IS NOT NULL AND CURDATE() > e.end_date THEN 'completed'
+         WHEN e.start_date IS NOT NULL AND CURDATE() >= e.start_date THEN 'in_progress'
+         ELSE 'upcoming'
+       END,
+       e.updated_at = NOW()
+       WHERE es.partner_id = ?
+         AND e.status != CASE
+           WHEN e.end_date IS NOT NULL AND CURDATE() > e.end_date THEN 'completed'
+           WHEN e.start_date IS NOT NULL AND CURDATE() >= e.start_date THEN 'in_progress'
+           ELSE 'upcoming'
+         END`,
+      [partnerUserId]
+    )
+
+    const exams = await executeQuery(
+      `SELECT e.*, c.name as class_name, sec.name as section_name
+       FROM erp_exams e
+       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
+       JOIN erp_sessions es ON es.id = ecs.session_id
+       JOIN classes c ON c.id = ecs.class_id
+       JOIN sections sec ON sec.id = ecs.section_id
+       WHERE es.partner_id = ? AND es.is_current = 1${whereExtra}
+       ORDER BY e.start_date DESC, e.name`,
+      params
+    )
+
+    return NextResponse.json({ data: exams })
+  } catch (error) {
+    console.error("Exams GET error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await auth()
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const school_id = session.user.school_id
+    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
+
+    const partnerRows = await executeQuery<{ user_id: number }[]>(
+      "SELECT user_id FROM partners WHERE id = ?", [school_id]
+    )
+    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const partnerUserId = partnerRows[0].user_id
+
+    const body = await request.json()
+    const { class_section_ids, name, code, start_date, end_date } = body
+
+    if (!Array.isArray(class_section_ids) || class_section_ids.length === 0 || !name) {
+      return NextResponse.json({ error: "class_section_ids array and name are required" }, { status: 400 })
+    }
+
+    // Verify all class-sections belong to this partner
+    const placeholders = class_section_ids.map(() => "?").join(", ")
+    const csCheck = await executeQuery<{ id: number }[]>(
+      `SELECT ecs.id FROM erp_class_sections ecs
+       JOIN erp_sessions es ON es.id = ecs.session_id
+       WHERE ecs.id IN (${placeholders}) AND es.partner_id = ?`,
+      [...class_section_ids, partnerUserId]
+    )
+    if (csCheck.length !== class_section_ids.length) {
+      return NextResponse.json({ error: "One or more class sections not found" }, { status: 404 })
+    }
+
+    const createdIds: number[] = []
+
+    await executeTransaction(async (connection) => {
+      for (const csId of class_section_ids) {
+        // Auto-compute status based on dates
+        const today = new Date().toISOString().split("T")[0]
+        let status = "upcoming"
+        if (start_date && end_date) {
+          if (today > end_date) status = "completed"
+          else if (today >= start_date) status = "in_progress"
+        } else if (start_date && today >= start_date) {
+          status = "in_progress"
+        }
+
+        // Create exam
+        const [result] = await connection.execute(
+          `INSERT INTO erp_exams (class_section_id, name, code, start_date, end_date, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [csId, name, code || null, start_date || null, end_date || null, status]
+        )
+        const examId = (result as any).insertId
+        createdIds.push(examId)
+
+        // Auto-add all subjects of this class-section to the exam schedule
+        const [subjects] = await connection.execute(
+          "SELECT id FROM erp_subjects WHERE class_section_id = ? ORDER BY sort_order, name",
+          [csId]
+        )
+        for (const sub of subjects as any[]) {
+          await connection.execute(
+            `INSERT INTO erp_exam_schedules (exam_id, subject_id, maximum_marks, created_at, updated_at)
+             VALUES (?, ?, 100, NOW(), NOW())`,
+            [examId, sub.id]
+          )
+        }
+      }
+    })
+
+    return NextResponse.json(
+      { data: { ids: createdIds }, message: `Exam created for ${createdIds.length} class-section(s) with all subjects` },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error("Exams POST error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}

@@ -1,24 +1,45 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AcademicCapIcon,
   UserGroupIcon,
   ClipboardDocumentCheckIcon,
   DocumentTextIcon,
+  ArrowRightIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Card, StatsCard } from "@/app/components/shared";
+
+interface UpcomingExam {
+  id: number;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  status: string;
+  class_name: string;
+  section_name: string;
+}
 
 interface DashboardStats {
   totalStudents: number;
   totalTeachers: number;
   todayAttendance: number;
   upcomingExams: number;
+  upcomingExamsList: UpcomingExam[];
 }
 
 export default function SchoolAdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+
+  // Show getting started guide if first-time (no students/teachers yet)
+  useEffect(() => {
+    const dismissed = localStorage.getItem("guide_dismissed");
+    if (!dismissed) setShowGuide(true);
+  }, []);
 
   useEffect(() => {
     async function fetchStats() {
@@ -48,6 +69,44 @@ export default function SchoolAdminDashboardPage() {
           Maintain your portal operations effortlessly
         </p>
       </div>
+
+      {/* Getting Started Guide Banner */}
+      {showGuide && (
+        <div className="relative bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-xl p-4 sm:p-5">
+          <button
+            onClick={() => {
+              setShowGuide(false);
+              localStorage.setItem("guide_dismissed", "1");
+            }}
+            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60 transition-colors z-10"
+            title="Dismiss"
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pr-6 sm:pr-0">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary-100 text-primary-600 shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-primary-900">
+                New here? Check the Getting Started Guide
+              </h3>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Step-by-step instructions to set up your school — sessions, classes, teachers, students, and more.
+              </p>
+            </div>
+            <Link
+              href="/school-admin/instructions"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shrink-0 mr-6"
+            >
+              View Guide
+              <ArrowRightIcon className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
@@ -158,6 +217,51 @@ export default function SchoolAdminDashboardPage() {
                     <div className="h-3 w-20 bg-gray-200 rounded animate-pulse" />
                   </div>
                   <div className="h-6 w-16 bg-gray-200 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : stats?.upcomingExamsList && stats.upcomingExamsList.length > 0 ? (
+            <div className="space-y-2">
+              {stats.upcomingExamsList.map((exam) => (
+                <div
+                  key={exam.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {exam.name}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {exam.class_name} - {exam.section_name}
+                      {exam.start_date && (
+                        <span className="ml-1">
+                          &middot;{" "}
+                          {new Date(exam.start_date).toLocaleDateString(
+                            "en-IN",
+                            { day: "2-digit", month: "short" }
+                          )}
+                          {exam.end_date && (
+                            <>
+                              {" - "}
+                              {new Date(exam.end_date).toLocaleDateString(
+                                "en-IN",
+                                { day: "2-digit", month: "short" }
+                              )}
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+                      exam.status === "in_progress"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {exam.status.replace("_", " ")}
+                  </span>
                 </div>
               ))}
             </div>

@@ -107,11 +107,14 @@ async function getSchoolAdminStats(partnerUserId: number) {
 
   // Upcoming exams (erp_exams links via class_section_id → erp_class_sections → session)
   const examRows = await executeQuery<Record<string, unknown>[]>(
-    `SELECT e.id, e.name, e.start_date, e.end_date
+    `SELECT e.id, e.name, e.start_date, e.end_date, e.status,
+            c.name as class_name, sec.name as section_name
      FROM erp_exams e
      JOIN erp_class_sections cs ON e.class_section_id = cs.id
+     JOIN classes c ON c.id = cs.class_id
+     JOIN sections sec ON sec.id = cs.section_id
      WHERE cs.session_id = ?
-       AND e.start_date >= CURDATE()
+       AND (e.status = 'upcoming' OR e.status = 'in_progress')
      ORDER BY e.start_date ASC
      LIMIT 5`,
     [currentSessionId]
@@ -122,6 +125,7 @@ async function getSchoolAdminStats(partnerUserId: number) {
     totalTeachers,
     todayAttendance: attendancePercentage,
     upcomingExams: examRows.length,
+    upcomingExamsList: examRows,
   }
 }
 

@@ -36,7 +36,17 @@ const MONTHS = [
 
 const STATUS_CYCLE: (Status | null)[] = ["present", "absent", "late", null];
 
-export default function TeacherAttendancePage() {
+import { Suspense } from "react";
+
+export default function TeacherAttendanceWrapper() {
+  return (
+    <Suspense fallback={<div className="animate-pulse h-72 bg-gray-100 rounded-xl" />}>
+      <TeacherAttendancePage />
+    </Suspense>
+  );
+}
+
+function TeacherAttendancePage() {
   const searchParams = useSearchParams();
   const preselected = searchParams.get("class_section_id") || "";
   const now = new Date();
@@ -260,10 +270,10 @@ export default function TeacherAttendancePage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="sticky left-0 z-20 bg-gray-50 px-3 py-2.5 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 min-w-[50px]">
+                  <th className="sticky left-0 z-20 bg-gray-50 px-3 py-2.5 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 min-w-[40px] sm:min-w-[50px]">
                     Roll
                   </th>
-                  <th className="sticky left-[50px] z-20 bg-gray-50 px-3 py-2.5 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 min-w-[130px]">
+                  <th className="sticky left-[40px] sm:left-[50px] z-20 bg-gray-50 px-3 py-2.5 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 min-w-[100px] sm:min-w-[130px]">
                     Name
                   </th>
                   {Array.from({ length: daysInMonth }, (_, i) => {
@@ -325,7 +335,7 @@ export default function TeacherAttendancePage() {
                       <td className="sticky left-0 z-10 bg-inherit px-3 py-2 text-gray-500 font-medium border-b border-r border-gray-100 text-xs">
                         {s.roll_number || "-"}
                       </td>
-                      <td className="sticky left-[50px] z-10 bg-inherit px-3 py-2 text-gray-900 font-medium border-b border-r border-gray-100 text-xs whitespace-nowrap">
+                      <td className="sticky left-[40px] sm:left-[50px] z-10 bg-inherit px-3 py-2 text-gray-900 font-medium border-b border-r border-gray-100 text-xs whitespace-nowrap">
                         {s.first_name} {s.last_name}
                       </td>
                       {Array.from({ length: daysInMonth }, (_, i) => {

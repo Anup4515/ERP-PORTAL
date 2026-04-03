@@ -24,6 +24,8 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  InformationCircleIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 
 interface NavItem {
@@ -46,13 +48,15 @@ const schoolAdminNav: NavItem[] = [
   { label: "Calendar", href: "/school-admin/calendar", icon: CalendarDaysIcon },
   { label: "Exams", href: "/school-admin/exams", icon: DocumentTextIcon },
   { label: "Marks", href: "/school-admin/marks", icon: ChartBarIcon },
-  { label: "Holistic", href: "/school-admin/holistic", icon: SparklesIcon },
-  {
-    label: "Reports",
-    href: "/school-admin/reports",
-    icon: DocumentChartBarIcon,
-  },
+  { label: "Staff", href: "/school-admin/staff", icon: UsersIcon },
+  // { label: "Holistic", href: "/school-admin/holistic", icon: SparklesIcon },
+  // {
+  //   label: "Reports",
+  //   href: "/school-admin/reports",
+  //   icon: DocumentChartBarIcon,
+  // },
   { label: "Settings", href: "/school-admin/settings", icon: Cog6ToothIcon },
+  { label: "Instructions", href: "/school-admin/instructions", icon: InformationCircleIcon },
 ];
 
 const teacherNav: NavItem[] = [
@@ -70,8 +74,9 @@ const teacherNav: NavItem[] = [
   },
   { label: "Calendar", href: "/teacher/calendar", icon: CalendarDaysIcon },
   { label: "Marks", href: "/teacher/marks", icon: ChartBarIcon },
-  { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
-  { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },
+  { label: "Instructions", href: "/teacher/instructions", icon: InformationCircleIcon },
+  // { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
+  // { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },
 ];
 
 interface DashboardLayoutProps {
@@ -269,9 +274,12 @@ export default function DashboardLayout({
 
             {/* Right: settings + notification + avatar */}
             <div className="flex items-center gap-3">
-              <button className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+              <Link
+                href={role === "school_admin" ? "/school-admin/settings" : "/teacher/dashboard"}
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
                 <Cog6ToothIcon className="w-5.5 h-5.5" />
-              </button>
+              </Link>
               <button className="relative text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
                 <BellIcon className="w-5.5 h-5.5" />
                 <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">

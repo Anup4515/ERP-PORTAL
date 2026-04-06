@@ -11,6 +11,10 @@ import {
   Modal,
   ConfirmDialog,
 } from "@/app/components/shared";
+import {
+  EyeIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 
 interface ClassSection {
   class_section_id: string;
@@ -121,10 +125,12 @@ export default function StudentsPage() {
     ];
     classes.forEach((cls) => {
       (cls.sections || []).forEach((sec) => {
-        opts.push({
-          value: sec.class_section_id,
-          label: `${cls.name} - ${sec.name}`,
-        });
+        if (sec.class_section_id) {
+          opts.push({
+            value: sec.class_section_id,
+            label: `${cls.name} - ${sec.name}`,
+          });
+        }
       });
     });
     return opts;
@@ -136,10 +142,12 @@ export default function StudentsPage() {
     ];
     classes.forEach((cls) => {
       (cls.sections || []).forEach((sec) => {
-        opts.push({
-          value: sec.class_section_id,
-          label: `${cls.name} - ${sec.name}`,
-        });
+        if (sec.class_section_id) {
+          opts.push({
+            value: sec.class_section_id,
+            label: `${cls.name} - ${sec.name}`,
+          });
+        }
       });
     });
     return opts;
@@ -220,12 +228,9 @@ export default function StudentsPage() {
       key: "name",
       label: "Name",
       render: (row: Record<string, unknown>) => (
-        <Link
-          href={`/school-admin/students/${row.id}`}
-          className="text-primary-600 hover:underline font-medium"
-        >
+        <span className="font-medium text-gray-900">
           {row.first_name as string} {row.last_name as string}
-        </Link>
+        </span>
       ),
     },
     { key: "class_name", label: "Class" },
@@ -242,13 +247,22 @@ export default function StudentsPage() {
       key: "actions",
       label: "Actions",
       render: (row: Record<string, unknown>) => (
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={() => setDeleteId(row.id as string)}
-        >
-          Delete
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/school-admin/students/${row.id}`}
+            className="p-1.5 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+            title="View"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </Link>
+          <button
+            onClick={() => setDeleteId(row.id as string)}
+            className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            title="Delete"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -269,8 +283,24 @@ export default function StudentsPage() {
     const errors: Record<string, string> = {};
     if (!form.first_name.trim()) errors.first_name = "First name is required";
     if (!form.last_name.trim()) errors.last_name = "Last name is required";
-    if (!form.email.trim()) errors.email = "Email is required";
+    if (!form.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      errors.email = "Enter a valid email address";
+    }
     if (!form.class_section_id) errors.class_section_id = "Class & section is required";
+    if (form.phone.trim() && !/^\d{10}$/.test(form.phone.trim())) {
+      errors.phone = "Phone number must be exactly 10 digits";
+    }
+    if (form.roll_number.trim() && !/^\d+$/.test(form.roll_number.trim())) {
+      errors.roll_number = "Roll number must be numeric";
+    }
+    if (form.date_of_birth) {
+      const dob = new Date(form.date_of_birth);
+      if (dob >= new Date()) {
+        errors.date_of_birth = "Date of birth must be in the past";
+      }
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -515,6 +545,7 @@ export default function StudentsPage() {
               type="date"
               value={form.date_of_birth}
               onChange={(e) => updateForm("date_of_birth", e.target.value)}
+              error={formErrors.date_of_birth}
             />
           </div>
 
@@ -524,12 +555,16 @@ export default function StudentsPage() {
               name="phone"
               value={form.phone}
               onChange={(e) => updateForm("phone", e.target.value)}
+              placeholder="10-digit phone number"
+              maxLength={10}
+              error={formErrors.phone}
             />
             <Input
               label="Roll Number"
               name="roll_number"
               value={form.roll_number}
               onChange={(e) => updateForm("roll_number", e.target.value)}
+              error={formErrors.roll_number}
             />
           </div>
 

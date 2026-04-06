@@ -139,11 +139,35 @@ export async function PUT(
           if ((csRows as any[]).length === 0) continue
 
           if (role === "class_teacher") {
+            // Check if another teacher is already assigned as class teacher
+            const [existingRows] = await connection.execute(
+              `SELECT ecs.class_teacher_id, u.name as teacher_name
+               FROM erp_class_sections ecs
+               LEFT JOIN users u ON u.id = ecs.class_teacher_id
+               WHERE ecs.id = ? AND ecs.class_teacher_id IS NOT NULL AND ecs.class_teacher_id != ?`,
+              [class_section_id, teacherUserId]
+            )
+            if ((existingRows as any[]).length > 0) {
+              const existing = (existingRows as any[])[0]
+              throw new Error(`CONFLICT:class_teacher:${existing.teacher_name || 'Another teacher'} is already the Class Teacher for this class-section.`)
+            }
             await connection.execute(
               `UPDATE erp_class_sections SET class_teacher_id = ?, updated_at = NOW() WHERE id = ?`,
               [teacherUserId, class_section_id]
             )
           } else if (role === "second_incharge") {
+            // Check if another teacher is already assigned as second incharge
+            const [existingRows] = await connection.execute(
+              `SELECT ecs.second_incharge_id, u.name as teacher_name
+               FROM erp_class_sections ecs
+               LEFT JOIN users u ON u.id = ecs.second_incharge_id
+               WHERE ecs.id = ? AND ecs.second_incharge_id IS NOT NULL AND ecs.second_incharge_id != ?`,
+              [class_section_id, teacherUserId]
+            )
+            if ((existingRows as any[]).length > 0) {
+              const existing = (existingRows as any[])[0]
+              throw new Error(`CONFLICT:second_incharge:${existing.teacher_name || 'Another teacher'} is already the Second Incharge for this class-section.`)
+            }
             await connection.execute(
               `UPDATE erp_class_sections SET second_incharge_id = ?, updated_at = NOW() WHERE id = ?`,
               [teacherUserId, class_section_id]
@@ -185,8 +209,12 @@ export async function PUT(
     })
 
     return NextResponse.json({ message: "Assignments updated successfully" })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Teacher assignments PUT error:", error)
+    if (error?.message?.startsWith("CONFLICT:")) {
+      const message = error.message.split(":").slice(2).join(":")
+      return NextResponse.json({ error: message }, { status: 409 })
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -14,7 +14,6 @@ import {
 import {
   PlusIcon,
   MagnifyingGlassIcon,
-  PencilSquareIcon,
   TrashIcon,
   EyeIcon,
   UserGroupIcon,
@@ -59,7 +58,6 @@ export default function TeachersListPage() {
 
   // Modal states
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [form, setForm] = useState<TeacherForm>(emptyForm);
@@ -103,19 +101,31 @@ export default function TeachersListPage() {
     }
   };
 
-  const validateForm = (isEdit: boolean): boolean => {
+  const validateForm = (): boolean => {
     const errors: Partial<TeacherForm> = {};
     if (!form.name.trim()) errors.name = "Name is required";
-    if (!isEdit) {
-      if (!form.email.trim()) errors.email = "Email is required";
-      if (!form.password.trim()) errors.password = "Password is required";
+    if (!form.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      errors.email = "Enter a valid email address";
+    }
+    if (!form.password.trim()) {
+      errors.password = "Password is required";
+    } else if (form.password.trim().length < 6) {
+      errors.password = "Password must be at least 6 characters";
+    }
+    if (form.phone_number.trim() && !/^\d{10}$/.test(form.phone_number.trim())) {
+      errors.phone_number = "Phone number must be exactly 10 digits";
+    }
+    if (form.experience.trim() && (isNaN(Number(form.experience)) || Number(form.experience) < 0)) {
+      errors.experience = "Experience must be a positive number";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleAdd = async () => {
-    if (!validateForm(false)) return;
+    if (!validateForm()) return;
     setSubmitting(true);
     try {
       const body: Record<string, string | number> = {
@@ -148,39 +158,6 @@ export default function TeachersListPage() {
     }
   };
 
-  const handleEdit = async () => {
-    if (!validateForm(true) || !selectedTeacher) return;
-    setSubmitting(true);
-    try {
-      const body: Record<string, string | number> = {
-        name: form.name,
-      };
-      if (form.phone_number) body.phone_number = form.phone_number;
-      if (form.subject_specialization)
-        body.subject_specialization = form.subject_specialization;
-      if (form.qualification) body.qualification = form.qualification;
-      if (form.experience) body.experience = Number(form.experience);
-
-      const res = await fetch(`/api/teachers/${selectedTeacher.user_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        setIsEditOpen(false);
-        setSelectedTeacher(null);
-        setForm(emptyForm);
-        setFormErrors({});
-        fetchTeachers();
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleDelete = async () => {
     if (!selectedTeacher) return;
     try {
@@ -196,21 +173,6 @@ export default function TeachersListPage() {
     }
   };
 
-  const openEditModal = (teacher: Teacher) => {
-    setSelectedTeacher(teacher);
-    setForm({
-      name: teacher.name || "",
-      email: teacher.email || "",
-      password: "",
-      phone_number: teacher.phone_number || "",
-      subject_specialization: teacher.subject_specialization || "",
-      qualification: teacher.qualification || "",
-      experience: teacher.experience != null ? String(teacher.experience) : "",
-    });
-    setFormErrors({});
-    setIsEditOpen(true);
-  };
-
   const openDeleteDialog = (teacher: Teacher) => {
     setSelectedTeacher(teacher);
     setIsDeleteOpen(true);
@@ -221,12 +183,9 @@ export default function TeachersListPage() {
       key: "name",
       label: "Name",
       render: (row: Record<string, unknown>) => (
-        <Link
-          href={`/school-admin/teachers/${row.user_id}`}
-          className="text-primary-600 hover:text-primary-800 font-medium hover:underline"
-        >
+        <span className="font-medium text-gray-900">
           {row.name as string}
-        </Link>
+        </span>
       ),
     },
     { key: "email", label: "Email" },
@@ -262,17 +221,10 @@ export default function TeachersListPage() {
           <Link
             href={`/school-admin/teachers/${row.user_id}`}
             className="p-1.5 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-            title="View & Assign"
+            title="View"
           >
             <EyeIcon className="h-4 w-4" />
           </Link>
-          <button
-            onClick={() => openEditModal(row as unknown as Teacher)}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-            title="Edit"
-          >
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
           <button
             onClick={() => openDeleteDialog(row as unknown as Teacher)}
             className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
@@ -285,44 +237,42 @@ export default function TeachersListPage() {
     },
   ];
 
-  const renderForm = (isEdit: boolean) => (
+  const renderForm = () => (
     <div className="space-y-4">
       <Input
-        label="Name"
+        label="Name *"
         name="name"
         value={form.name}
         onChange={handleFormChange}
         placeholder="Full name"
         error={formErrors.name}
       />
-      {!isEdit && (
-        <>
-          <Input
-            label="Email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleFormChange}
-            placeholder="email@example.com"
-            error={formErrors.email}
-          />
-          <Input
-            label="Password"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={handleFormChange}
-            placeholder="Password"
-            error={formErrors.password}
-          />
-        </>
-      )}
+      <Input
+        label="Email *"
+        name="email"
+        type="email"
+        value={form.email}
+        onChange={handleFormChange}
+        placeholder="email@example.com"
+        error={formErrors.email}
+      />
+      <Input
+        label="Password *"
+        name="password"
+        type="password"
+        value={form.password}
+        onChange={handleFormChange}
+        placeholder="Password (min 6 characters)"
+        error={formErrors.password}
+      />
       <Input
         label="Phone Number"
         name="phone_number"
         value={form.phone_number}
         onChange={handleFormChange}
-        placeholder="Phone number"
+        placeholder="10-digit phone number"
+        maxLength={10}
+        error={formErrors.phone_number}
       />
       <Input
         label="Subject Specialization"
@@ -344,13 +294,14 @@ export default function TeachersListPage() {
         type="number"
         value={form.experience}
         onChange={handleFormChange}
+        error={formErrors.experience}
         placeholder="Years of experience"
       />
       <div className="flex items-center justify-end gap-3 pt-2">
         <Button
           variant="ghost"
           onClick={() => {
-            isEdit ? setIsEditOpen(false) : setIsAddOpen(false);
+            setIsAddOpen(false);
             setForm(emptyForm);
             setFormErrors({});
           }}
@@ -360,9 +311,9 @@ export default function TeachersListPage() {
         <Button
           variant="primary"
           loading={submitting}
-          onClick={isEdit ? handleEdit : handleAdd}
+          onClick={handleAdd}
         >
-          {isEdit ? "Save Changes" : "Add Teacher"}
+          Add Teacher
         </Button>
       </div>
     </div>
@@ -459,22 +410,7 @@ export default function TeachersListPage() {
         title="Add Teacher"
         size="lg"
       >
-        {renderForm(false)}
-      </Modal>
-
-      {/* Edit Modal */}
-      <Modal
-        isOpen={isEditOpen}
-        onClose={() => {
-          setIsEditOpen(false);
-          setSelectedTeacher(null);
-          setForm(emptyForm);
-          setFormErrors({});
-        }}
-        title="Edit Teacher"
-        size="lg"
-      >
-        {renderForm(true)}
+        {renderForm()}
       </Modal>
 
       {/* Delete Confirmation */}

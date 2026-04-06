@@ -26,6 +26,7 @@ import {
   ChevronDoubleRightIcon,
   InformationCircleIcon,
   UsersIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 
 interface NavItem {
@@ -48,6 +49,7 @@ const schoolAdminNav: NavItem[] = [
   { label: "Calendar", href: "/school-admin/calendar", icon: CalendarDaysIcon },
   { label: "Exams", href: "/school-admin/exams", icon: DocumentTextIcon },
   { label: "Marks", href: "/school-admin/marks", icon: ChartBarIcon },
+  { label: "Timetable", href: "/school-admin/timetable", icon: ClockIcon },
   { label: "Staff", href: "/school-admin/staff", icon: UsersIcon },
   // { label: "Holistic", href: "/school-admin/holistic", icon: SparklesIcon },
   // {
@@ -74,6 +76,7 @@ const teacherNav: NavItem[] = [
   },
   { label: "Calendar", href: "/teacher/calendar", icon: CalendarDaysIcon },
   { label: "Marks", href: "/teacher/marks", icon: ChartBarIcon },
+  { label: "Timetable", href: "/teacher/timetable", icon: ClockIcon },
   { label: "Instructions", href: "/teacher/instructions", icon: InformationCircleIcon },
   // { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
   // { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },

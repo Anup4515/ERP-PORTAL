@@ -230,7 +230,7 @@ function TeacherAttendancePage() {
   };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold text-primary-900">Attendance</h1>
 
       {/* Filters */}
@@ -394,12 +394,10 @@ function TeacherAttendancePage() {
 
       {/* Sticky Save */}
       {students.length > 0 && dirty.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
-          <div className="max-w-4xl mx-auto">
-            <Button variant="primary" className="w-full" onClick={handleSave} loading={saving}>
-              Save All Attendance
-            </Button>
-          </div>
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 -mx-4 sm:-mx-6">
+          <Button variant="primary" className="w-full" onClick={handleSave} loading={saving}>
+            Save All Attendance
+          </Button>
         </div>
       )}
     </div>

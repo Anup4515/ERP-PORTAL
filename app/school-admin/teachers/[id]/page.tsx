@@ -161,15 +161,37 @@ export default function TeacherDetailPage() {
     load();
   }, [fetchTeacher, fetchAssignments]);
 
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    if (formErrors[name]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!form.name.trim()) errors.name = "Name is required";
+    if (form.phone_number.trim() && !/^\d{10}$/.test(form.phone_number.trim())) {
+      errors.phone_number = "Phone number must be exactly 10 digits";
+    }
+    if (form.experience.trim() && (isNaN(Number(form.experience)) || Number(form.experience) < 0)) {
+      errors.experience = "Experience must be a positive number";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!teacher) return;
+    if (!teacher || !validateForm()) return;
     setSaving(true);
     try {
       const body: Record<string, string | number> = { name: form.name };
@@ -487,10 +509,11 @@ export default function TeacherDetailPage() {
         {isEditing ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="Name"
+              label="Name *"
               name="name"
               value={form.name}
               onChange={handleFormChange}
+              error={formErrors.name}
             />
             <Input
               label="Email"
@@ -503,6 +526,9 @@ export default function TeacherDetailPage() {
               name="phone_number"
               value={form.phone_number}
               onChange={handleFormChange}
+              placeholder="10-digit phone number"
+              maxLength={10}
+              error={formErrors.phone_number}
             />
             <Input
               label="Subject Specialization"
@@ -522,6 +548,7 @@ export default function TeacherDetailPage() {
               type="number"
               value={form.experience}
               onChange={handleFormChange}
+              error={formErrors.experience}
             />
             <div className="md:col-span-2">
               <label className="text-sm font-medium text-gray-700 block mb-1.5">

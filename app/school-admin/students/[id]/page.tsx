@@ -85,6 +85,7 @@ export default function StudentDetailPage() {
   // Edit mode
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Student>>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -191,9 +192,45 @@ export default function StudentDetailPage() {
 
   function updateEditForm(field: string, value: string) {
     setEditForm((prev) => ({ ...prev, [field]: value }));
+    if (editErrors[field]) {
+      setEditErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  }
+
+  function validateEditForm(): boolean {
+    const errors: Record<string, string> = {};
+    if (!editForm.first_name?.trim()) errors.first_name = "First name is required";
+    if (!editForm.last_name?.trim()) errors.last_name = "Last name is required";
+    if (!editForm.email?.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())) {
+      errors.email = "Enter a valid email address";
+    }
+    if (editForm.phone?.trim() && !/^\d{10}$/.test(editForm.phone.trim())) {
+      errors.phone = "Phone number must be exactly 10 digits";
+    }
+    if (editForm.guardian_phone?.trim() && !/^\d{10}$/.test(editForm.guardian_phone.trim())) {
+      errors.guardian_phone = "Guardian phone must be exactly 10 digits";
+    }
+    if (editForm.postal_code?.trim() && !/^\d{6}$/.test(editForm.postal_code.trim())) {
+      errors.postal_code = "Postal code must be exactly 6 digits";
+    }
+    if (editForm.date_of_birth) {
+      const dob = new Date(editForm.date_of_birth);
+      if (dob >= new Date()) {
+        errors.date_of_birth = "Date of birth must be in the past";
+      }
+    }
+    setEditErrors(errors);
+    return Object.keys(errors).length === 0;
   }
 
   async function handleSave() {
+    if (!validateEditForm()) return;
     setSaving(true);
     setSaveError("");
     try {
@@ -431,29 +468,35 @@ export default function StudentDetailPage() {
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       <Input
-                        label="First Name"
+                        label="First Name *"
                         name="first_name"
                         value={(editForm.first_name as string) || ""}
                         onChange={(e) => updateEditForm("first_name", e.target.value)}
+                        error={editErrors.first_name}
                       />
                       <Input
-                        label="Last Name"
+                        label="Last Name *"
                         name="last_name"
                         value={(editForm.last_name as string) || ""}
                         onChange={(e) => updateEditForm("last_name", e.target.value)}
+                        error={editErrors.last_name}
                       />
                       <Input
-                        label="Email"
+                        label="Email *"
                         name="email"
                         type="email"
                         value={(editForm.email as string) || ""}
                         onChange={(e) => updateEditForm("email", e.target.value)}
+                        error={editErrors.email}
                       />
                       <Input
                         label="Phone"
                         name="phone"
                         value={(editForm.phone as string) || ""}
                         onChange={(e) => updateEditForm("phone", e.target.value)}
+                        placeholder="10-digit phone number"
+                        maxLength={10}
+                        error={editErrors.phone}
                       />
                       <Select
                         label="Gender"
@@ -473,6 +516,7 @@ export default function StudentDetailPage() {
                         type="date"
                         value={(editForm.date_of_birth as string) || ""}
                         onChange={(e) => updateEditForm("date_of_birth", e.target.value)}
+                        error={editErrors.date_of_birth}
                       />
                       <Input
                         label="Blood Group"
@@ -523,6 +567,9 @@ export default function StudentDetailPage() {
                         name="guardian_phone"
                         value={(editForm.guardian_phone as string) || ""}
                         onChange={(e) => updateEditForm("guardian_phone", e.target.value)}
+                        placeholder="10-digit phone number"
+                        maxLength={10}
+                        error={editErrors.guardian_phone}
                       />
                     </div>
                   </div>
@@ -561,6 +608,8 @@ export default function StudentDetailPage() {
                         name="postal_code"
                         value={(editForm.postal_code as string) || ""}
                         onChange={(e) => updateEditForm("postal_code", e.target.value)}
+                        maxLength={6}
+                        error={editErrors.postal_code}
                       />
                     </div>
                   </div>

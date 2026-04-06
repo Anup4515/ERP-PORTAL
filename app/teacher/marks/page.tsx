@@ -204,7 +204,7 @@ export default function TeacherMarksPage() {
 
   // GRID VIEW
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
         <button onClick={() => setViewMode("list")} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary-600 transition-colors">
           <ArrowLeftIcon className="h-4 w-4" /> Back to Exams
@@ -318,12 +318,10 @@ export default function TeacherMarksPage() {
 
       {/* Sticky Save */}
       {students.length > 0 && subjects.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
-          <div className="max-w-4xl mx-auto">
-            <Button variant="primary" className="w-full bg-yellow-500 hover:bg-yellow-600" onClick={handleSave} loading={saving}>
-              Save All Marks
-            </Button>
-          </div>
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 -mx-4 sm:-mx-6">
+          <Button variant="primary" className="w-full bg-yellow-500 hover:bg-yellow-600" onClick={handleSave} loading={saving}>
+            Save All Marks
+          </Button>
         </div>
       )}
     </div>

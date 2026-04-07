@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 // Helper: verify teacher is assigned to the class this student is enrolled in
@@ -31,22 +31,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "teacher") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const ctx = await getAuthContext(["teacher"])
+    if (isAuthError(ctx)) return ctx
 
-    const school_id = session.user.school_id
-    const teacherUserId = session.user.user_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
-
-    const hasAccess = await verifyTeacherAccessToStudent(Number(id), teacherUserId, partnerUserId)
+    const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId)
     if (!hasAccess) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
 
     const rows = await executeQuery(
@@ -74,22 +62,10 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "teacher") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const ctx = await getAuthContext(["teacher"])
+    if (isAuthError(ctx)) return ctx
 
-    const school_id = session.user.school_id
-    const teacherUserId = session.user.user_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
-
-    const hasAccess = await verifyTeacherAccessToStudent(Number(id), teacherUserId, partnerUserId)
+    const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId)
     if (!hasAccess) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
 
     const body = await request.json()

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(
@@ -7,44 +7,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    if (session.user.role !== "school_admin") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
-
-    const school_id = session.user.school_id
-
-    if (!school_id) {
-      return NextResponse.json(
-        { error: "No partner profile" },
-        { status: 400 }
-      )
-    }
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-
-    if (partnerRows.length === 0) {
-      return NextResponse.json(
-        { error: "Partner not found" },
-        { status: 404 }
-      )
-    }
-
-    const partnerUserId = partnerRows[0].user_id
     const { id } = await params
     const classId = parseInt(id, 10)
 
@@ -58,7 +23,7 @@ export async function GET(
     // Verify the class belongs to this partner
     const classRows = await executeQuery<{ id: number }[]>(
       "SELECT id FROM classes WHERE id = ? AND partner_id = ?",
-      [classId, partnerUserId]
+      [classId, ctx.partnerUserId]
     )
 
     if (classRows.length === 0) {
@@ -88,44 +53,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    if (session.user.role !== "school_admin") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
-
-    const school_id = session.user.school_id
-
-    if (!school_id) {
-      return NextResponse.json(
-        { error: "No partner profile" },
-        { status: 400 }
-      )
-    }
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-
-    if (partnerRows.length === 0) {
-      return NextResponse.json(
-        { error: "Partner not found" },
-        { status: 404 }
-      )
-    }
-
-    const partnerUserId = partnerRows[0].user_id
     const { id } = await params
     const classId = parseInt(id, 10)
 
@@ -139,7 +69,7 @@ export async function POST(
     // Verify the class belongs to this partner
     const classRows = await executeQuery<{ id: number }[]>(
       "SELECT id FROM classes WHERE id = ? AND partner_id = ?",
-      [classId, partnerUserId]
+      [classId, ctx.partnerUserId]
     )
 
     if (classRows.length === 0) {
@@ -171,7 +101,7 @@ export async function POST(
     // Link to current session via erp_class_sections
     const sessionRows = await executeQuery<{ id: number }[]>(
       "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
 
     let classSectionId = null

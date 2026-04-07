@@ -27,6 +27,7 @@ interface TeacherDetail {
   subject_specialization: string | null;
   qualification: string | null;
   experience: number | null;
+  date_of_joining: string | null;
   teacher_type: string | null;
   bio: string | null;
   address: string | null;
@@ -78,7 +79,7 @@ interface EditForm {
   phone_number: string;
   subject_specialization: string;
   qualification: string;
-  experience: string;
+  date_of_joining: string;
   bio: string;
   address: string;
 }
@@ -97,7 +98,7 @@ export default function TeacherDetailPage() {
     phone_number: "",
     subject_specialization: "",
     qualification: "",
-    experience: "",
+    date_of_joining: "",
     bio: "",
     address: "",
   });
@@ -127,8 +128,7 @@ export default function TeacherDetailPage() {
           phone_number: json.data.phone_number || "",
           subject_specialization: json.data.subject_specialization || "",
           qualification: json.data.qualification || "",
-          experience:
-            json.data.experience != null ? String(json.data.experience) : "",
+          date_of_joining: json.data.date_of_joining ? json.data.date_of_joining.split("T")[0] : "",
           bio: json.data.bio || "",
           address: json.data.address || "",
         });
@@ -183,8 +183,11 @@ export default function TeacherDetailPage() {
     if (form.phone_number.trim() && !/^\d{10}$/.test(form.phone_number.trim())) {
       errors.phone_number = "Phone number must be exactly 10 digits";
     }
-    if (form.experience.trim() && (isNaN(Number(form.experience)) || Number(form.experience) < 0)) {
-      errors.experience = "Experience must be a positive number";
+    if (form.date_of_joining) {
+      const doj = new Date(form.date_of_joining);
+      if (doj > new Date()) {
+        errors.date_of_joining = "Date of joining cannot be in the future";
+      }
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -199,7 +202,7 @@ export default function TeacherDetailPage() {
       if (form.subject_specialization)
         body.subject_specialization = form.subject_specialization;
       if (form.qualification) body.qualification = form.qualification;
-      if (form.experience) body.experience = Number(form.experience);
+      body.date_of_joining = form.date_of_joining || "";
       if (form.bio) body.bio = form.bio;
       if (form.address) body.address = form.address;
 
@@ -422,8 +425,7 @@ export default function TeacherDetailPage() {
         phone_number: teacher.phone_number || "",
         subject_specialization: teacher.subject_specialization || "",
         qualification: teacher.qualification || "",
-        experience:
-          teacher.experience != null ? String(teacher.experience) : "",
+        date_of_joining: teacher.date_of_joining ? teacher.date_of_joining.split("T")[0] : "",
         bio: teacher.bio || "",
         address: teacher.address || "",
       });
@@ -542,14 +544,30 @@ export default function TeacherDetailPage() {
               value={form.qualification}
               onChange={handleFormChange}
             />
-            <Input
-              label="Experience (years)"
-              name="experience"
-              type="number"
-              value={form.experience}
-              onChange={handleFormChange}
-              error={formErrors.experience}
-            />
+            <div>
+              <Input
+                label="Date of Joining"
+                name="date_of_joining"
+                type="date"
+                value={form.date_of_joining}
+                onChange={handleFormChange}
+                error={formErrors.date_of_joining}
+              />
+              {form.date_of_joining && new Date(form.date_of_joining) <= new Date() && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Experience: <span className="font-medium text-primary-700">
+                    {(() => {
+                      const doj = new Date(form.date_of_joining);
+                      const now = new Date();
+                      const years = Math.floor((now.getTime() - doj.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+                      const months = Math.floor(((now.getTime() - doj.getTime()) / (1000 * 60 * 60 * 24 * 30.44)) % 12);
+                      if (years > 0) return `${years} yr${years > 1 ? "s" : ""}${months > 0 ? ` ${months} mo` : ""}`;
+                      return `${months} month${months !== 1 ? "s" : ""}`;
+                    })()}
+                  </span>
+                </p>
+              )}
+            </div>
             <div className="md:col-span-2">
               <label className="text-sm font-medium text-gray-700 block mb-1.5">
                 Bio
@@ -588,10 +606,18 @@ export default function TeacherDetailPage() {
             />
             <InfoRow label="Qualification" value={teacher.qualification} />
             <InfoRow
+              label="Date of Joining"
+              value={
+                teacher.date_of_joining
+                  ? new Date(teacher.date_of_joining).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                  : null
+              }
+            />
+            <InfoRow
               label="Experience"
               value={
                 teacher.experience != null
-                  ? `${teacher.experience} years`
+                  ? `${teacher.experience} year${teacher.experience !== 1 ? "s" : ""}`
                   : null
               }
             />

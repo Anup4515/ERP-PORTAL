@@ -5,6 +5,7 @@ import {
   Card,
   Button,
   Input,
+  Select,
   Modal,
   Badge,
   EmptyState,
@@ -13,27 +14,37 @@ import {
 } from "@/app/components/shared";
 
 interface SubParameter {
-  sub_id: number;
-  sub_name: string;
-  sub_sort_order: number;
+  id: number;
+  name: string;
+  sort_order: number;
 }
 
 interface Parameter {
   id: number;
   name: string;
+  stage: string | null;
   sort_order: number;
   sub_parameters: SubParameter[];
 }
 
+const STAGE_OPTIONS = [
+  { value: "", label: "Select Stage" },
+  { value: "foundational", label: "Foundational (Nursery - Class 2)" },
+  { value: "preparatory", label: "Preparatory (Class 3 - 5)" },
+  { value: "middle", label: "Middle (Class 6 - 8)" },
+  { value: "secondary", label: "Secondary (Class 9 - 12)" },
+];
+
 export default function HolisticParamsTab() {
   const [parameters, setParameters] = useState<Parameter[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedStage, setExpandedStage] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [banner, setBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Add Parameter modal
   const [showAddParam, setShowAddParam] = useState(false);
-  const [paramForm, setParamForm] = useState({ name: "", sort_order: "" });
+  const [paramForm, setParamForm] = useState({ name: "", stage: "", sort_order: "" });
   const [addingParam, setAddingParam] = useState(false);
 
   // Add Sub-Parameter modal
@@ -81,7 +92,8 @@ export default function HolisticParamsTab() {
 
     try {
       setAddingParam(true);
-      const body: { name: string; sort_order?: number } = { name: paramForm.name.trim() };
+      const body: { name: string; stage?: string; sort_order?: number } = { name: paramForm.name.trim() };
+      if (paramForm.stage) body.stage = paramForm.stage;
       if (paramForm.sort_order) body.sort_order = Number(paramForm.sort_order);
 
       const res = await fetch("/api/holistic/parameters", {
@@ -95,7 +107,7 @@ export default function HolisticParamsTab() {
       }
       setBanner({ type: "success", message: "Parameter added successfully." });
       setShowAddParam(false);
-      setParamForm({ name: "", sort_order: "" });
+      setParamForm({ name: "", stage: "", sort_order: "" });
       await fetchParameters();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create parameter.";
@@ -150,7 +162,7 @@ export default function HolisticParamsTab() {
       const res = await fetch("/api/holistic/parameters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ load_defaults: true }),
+        body: JSON.stringify({ load_defaults: "all" }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
@@ -197,14 +209,14 @@ export default function HolisticParamsTab() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
+          {/* <Button
+            variant="outline"
             size="md"
             loading={loadingDefaults}
             onClick={() => setShowLoadDefaultsConfirm(true)}
           >
             Load Defaults
-          </Button>
+          </Button> */}
           <Button variant="primary" size="md" onClick={() => setShowAddParam(true)}>
             Add Parameter
           </Button>
@@ -240,71 +252,93 @@ export default function HolisticParamsTab() {
           />
         </Card>
       ) : (
-        <div className="space-y-4">
-          {parameters.map((param) => {
-            const isExpanded = expandedId === param.id;
+        <div className="space-y-3">
+          {STAGE_OPTIONS.filter((s) => s.value).map((stageOpt) => {
+            const stage = stageOpt.value;
+            const stageParams = parameters.filter((p) => p.stage === stage);
+            const isStageExpanded = expandedStage === stage;
+
             return (
-              <Card key={param.id} padding="none">
-                {/* Header Row */}
-                <button
-                  type="button"
-                  className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors duration-150"
-                  onClick={() => toggleExpand(param.id)}
+              <Card key={stage} padding="none">
+                {/* Stage Header */}
+                <div
+                  className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => setExpandedStage(isStageExpanded ? null : stage)}
                 >
                   <div className="flex items-center gap-3">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
-                        isExpanded ? "rotate-90" : ""
-                      }`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
+                      className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isStageExpanded ? "rotate-90" : ""}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
-                    <span className="font-semibold text-gray-900">{param.name}</span>
+                    <span className="font-semibold text-primary-900">{stageOpt.label}</span>
                     <Badge variant="info" size="sm">
-                      {param.sub_parameters.length} sub-parameter
-                      {param.sub_parameters.length !== 1 ? "s" : ""}
+                      {stageParams.length} parameter{stageParams.length !== 1 ? "s" : ""}
                     </Badge>
                   </div>
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-2"
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openAddSubModal(param.id)}
-                    >
-                      Add Sub-Parameter
-                    </Button>
-                  </div>
-                </button>
+                </div>
 
-                {/* Expanded Body */}
-                {isExpanded && (
-                  <div className="px-6 pb-4 border-t border-gray-100 pt-4">
-                    {param.sub_parameters.length === 0 ? (
-                      <p className="text-sm text-gray-500 italic">
-                        No sub-parameters yet. Add one to get started.
-                      </p>
+                {/* Stage Body — list of parameters */}
+                {isStageExpanded && (
+                  <div className="border-t border-gray-100">
+                    {stageParams.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic px-5 py-4">No parameters for this stage.</p>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {param.sub_parameters
-                          .sort((a, b) => a.sub_sort_order - b.sub_sort_order)
-                          .map((sub) => (
+                      stageParams.map((param) => {
+                        const isParamExpanded = expandedId === param.id;
+                        return (
+                          <div key={param.id} className="border-b border-gray-50 last:border-b-0">
+                            {/* Parameter Row */}
                             <div
-                              key={sub.sub_id}
-                              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+                              className="flex items-center justify-between px-5 py-3 pl-10 cursor-pointer hover:bg-gray-50/70 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); toggleExpand(param.id); }}
                             >
-                              <span className="font-medium text-gray-800">{sub.sub_name}</span>
-                              <span className="text-xs text-gray-400">#{sub.sub_sort_order}</span>
+                              <div className="flex items-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isParamExpanded ? "rotate-90" : ""}`}
+                                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                                <span className="text-sm font-medium text-gray-800">{param.name}</span>
+                                <Badge variant="default" size="sm">
+                                  {param.sub_parameters.length} sub
+                                </Badge>
+                              </div>
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <Button variant="outline" size="sm" onClick={() => openAddSubModal(param.id)}>
+                                  Add Sub-Parameter
+                                </Button>
+                              </div>
                             </div>
-                          ))}
-                      </div>
+
+                            {/* Sub-parameters */}
+                            {isParamExpanded && (
+                              <div className="px-5 pl-16 pb-3 pt-1">
+                                {param.sub_parameters.length === 0 ? (
+                                  <p className="text-xs text-gray-400 italic">No sub-parameters yet.</p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-2">
+                                    {param.sub_parameters
+                                      .sort((a, b) => a.sort_order - b.sort_order)
+                                      .map((sub) => (
+                                        <div
+                                          key={sub.id}
+                                          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs"
+                                        >
+                                          <span className="font-medium text-gray-700">{sub.name}</span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -330,6 +364,13 @@ export default function HolisticParamsTab() {
               value={paramForm.name}
               onChange={(e) => setParamForm((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="e.g. Physical Development"
+            />
+            <Select
+              label="Stage *"
+              name="param_stage"
+              value={paramForm.stage}
+              onChange={(e) => setParamForm((prev) => ({ ...prev, stage: e.target.value }))}
+              options={STAGE_OPTIONS}
             />
             <Input
               label="Sort Order"

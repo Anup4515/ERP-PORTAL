@@ -1,50 +1,19 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
 import { executeQuery } from "@/app/lib/db"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 
 export async function GET() {
   try {
-    const session = await auth()
+    const ctx = await getAuthContext(["school_admin", "teacher"])
+    if (isAuthError(ctx)) return ctx
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const { role, school_id, user_id } = session.user
-
-    if (!school_id) {
-      return NextResponse.json(
-        { error: "No partner profile associated" },
-        { status: 400 }
-      )
-    }
-
-    // Resolve the partner's user_id from partners.id (school_id)
-    // erp_* tables use partner_id = users.id, but school_id = partners.id
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-
-    if (partnerRows.length === 0) {
-      return NextResponse.json(
-        { error: "Partner not found" },
-        { status: 404 }
-      )
-    }
-
-    const partnerUserId = partnerRows[0].user_id
-
-    if (role === "school_admin") {
-      const stats = await getSchoolAdminStats(partnerUserId)
+    if (ctx.role === "school_admin") {
+      const stats = await getSchoolAdminStats(ctx.partnerUserId)
       return NextResponse.json({ data: stats })
     }
 
-    if (role === "teacher") {
-      const stats = await getTeacherStats(partnerUserId, user_id)
+    if (ctx.role === "teacher") {
+      const stats = await getTeacherStats(ctx.partnerUserId, ctx.userId)
       return NextResponse.json({ data: stats })
     }
 

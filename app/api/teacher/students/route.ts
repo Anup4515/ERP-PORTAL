@@ -1,23 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "teacher") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    const school_id = session.user.school_id
-    const teacherUserId = session.user.user_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["teacher"])
+    if (isAuthError(ctx)) return ctx
 
     const { searchParams } = new URL(request.url)
     const classSectionId = searchParams.get("class_section_id")
@@ -29,7 +17,7 @@ export async function GET(request: Request) {
     // Verify teacher is assigned to this class-section
     const sessRows = await executeQuery<{ id: number }[]>(
       "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
     if (sessRows.length === 0) {
       return NextResponse.json({ data: [] })
@@ -43,7 +31,7 @@ export async function GET(request: Request) {
            OR ecs.second_incharge_id = ?
            OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?)
          )`,
-      [classSectionId, sessRows[0].id, teacherUserId, teacherUserId, teacherUserId]
+      [classSectionId, sessRows[0].id, ctx.userId, ctx.userId, ctx.userId]
     )
     if (csCheck.length === 0) {
       return NextResponse.json({ error: "Not authorized for this class" }, { status: 403 })
@@ -68,20 +56,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "teacher") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    const school_id = session.user.school_id
-    const teacherUserId = session.user.user_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["teacher"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const {
@@ -101,7 +77,7 @@ export async function POST(request: Request) {
     // Verify teacher is assigned to this class-section
     const sessRows = await executeQuery<{ id: number }[]>(
       "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
     if (sessRows.length === 0) {
       return NextResponse.json({ error: "No active session" }, { status: 400 })
@@ -112,7 +88,7 @@ export async function POST(request: Request) {
        WHERE ecs.id = ? AND ecs.session_id = ?
          AND (ecs.class_teacher_id = ? OR ecs.second_incharge_id = ?
               OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?))`,
-      [class_section_id, sessRows[0].id, teacherUserId, teacherUserId, teacherUserId]
+      [class_section_id, sessRows[0].id, ctx.userId, ctx.userId, ctx.userId]
     )
     if (csCheck.length === 0) {
       return NextResponse.json({ error: "Not authorized for this class" }, { status: 403 })
@@ -128,7 +104,7 @@ export async function POST(request: Request) {
           status, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
         [
-          teacherUserId, first_name, last_name, middle_name || null,
+          ctx.userId, first_name, last_name, middle_name || null,
           gender || null, date_of_birth || null, email, phone || null,
           father_name || null, mother_name || null, guardian_name || null,
           guardian_phone || null, guardian_email || null,

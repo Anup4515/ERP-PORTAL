@@ -6,7 +6,9 @@ import {
   CalendarDaysIcon,
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
+  ClockIcon,
   RectangleGroupIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 
 interface StepProps {
@@ -145,6 +147,37 @@ export default function TeacherInstructionsPage() {
             "Click 'Save All Marks' to save marks for all subjects at once",
           ]}
         />
+
+        <Step
+          number={6}
+          title="View Timetable"
+          icon={<ClockIcon className="w-5 h-5" />}
+          description="Go to Timetable from the sidebar to view your weekly schedule and class timetables."
+          items={[
+            "My Schedule tab shows your personal weekly timetable — all your assigned periods across classes",
+            "Each slot shows the subject, class-section, and room number",
+            "Class Timetable tab lets you select any of your assigned classes to see its full weekly timetable",
+            "The class view shows all subjects with their assigned teachers for each period",
+            "Breaks, lunch, and assembly periods are shown in different colors",
+          ]}
+        />
+
+        <Step
+          number={7}
+          title="Holistic Development Ratings"
+          icon={<SparklesIcon className="w-5 h-5" />}
+          description="Go to Holistic from the sidebar to rate students on holistic development parameters."
+          items={[
+            "Select your class from the dropdown — only your assigned classes appear",
+            "Select a parameter (e.g. Physical Activity, Academic Performance) — parameters are filtered based on the class stage",
+            "Use the month navigator to select the rating month",
+            "Enter ratings (0-10) for each student across all sub-parameters — inputs are color-coded (red 0-3, yellow 4-6, green 7-10)",
+            "Add optional comments per student in the Comments column",
+            "Use 'Set Default (5)' to fill all empty cells with a default rating of 5",
+            "Use 'Copy from Previous Month' to pre-fill from last month's ratings",
+            "Click 'Save Ratings' to save all entries — you can edit and save again anytime",
+          ]}
+        />
       </div>
 
       {/* Tips */}
@@ -172,6 +205,14 @@ export default function TeacherInstructionsPage() {
           <li className="flex items-start gap-2 text-sm text-yellow-800">
             <span className="mt-0.5">&#9670;</span>
             Grades are auto-assigned based on the grading scheme set by the admin
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            Rate holistic parameters monthly — this data feeds into student report cards
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            If holistic parameters are empty, ask your admin to load defaults in Settings → Holistic
           </li>
         </ul>
       </Card>

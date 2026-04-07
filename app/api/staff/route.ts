@@ -1,23 +1,15 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET() {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const staff = await executeQuery(
       "SELECT * FROM partner_staff WHERE partner_id = ? ORDER BY designation, name",
-      [partnerRows[0].user_id]
+      [ctx.partnerUserId]
     )
 
     return NextResponse.json({ data: staff })
@@ -29,16 +21,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { name, designation, department, phone, email, qualification, experience, address } = body
@@ -50,7 +34,7 @@ export async function POST(request: Request) {
     const result = await executeQuery<{ insertId: number }>(
       `INSERT INTO partner_staff (partner_id, name, designation, department, phone, email, qualification, experience, address)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [partnerRows[0].user_id, name, designation, department || null, phone || null, email || null, qualification || null, experience || null, address || null]
+      [ctx.partnerUserId, name, designation, department || null, phone || null, email || null, qualification || null, experience || null, address || null]
     )
 
     return NextResponse.json(

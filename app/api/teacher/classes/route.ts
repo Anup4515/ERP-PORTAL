@@ -1,28 +1,16 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET() {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "teacher") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    const school_id = session.user.school_id
-    const teacherUserId = session.user.user_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["teacher"])
+    if (isAuthError(ctx)) return ctx
 
     // Get current session
     const sessRows = await executeQuery<{ id: number }[]>(
       "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
     if (sessRows.length === 0) {
       return NextResponse.json({ data: [] })
@@ -31,7 +19,7 @@ export async function GET() {
 
     // Get class-sections where teacher is class_teacher or second_incharge
     const classes = await executeQuery(
-      `SELECT ecs.id as class_section_id, c.name as class_name, s.name as section_name,
+      `SELECT ecs.id as class_section_id, c.name as class_name, s.name as section_name, c.grade_level,
               CASE
                 WHEN ecs.class_teacher_id = ? THEN 'Class Teacher'
                 WHEN ecs.second_incharge_id = ? THEN 'Second Incharge'
@@ -51,7 +39,7 @@ export async function GET() {
            )
          )
        ORDER BY c.name, s.name`,
-      [teacherUserId, teacherUserId, currentSessionId, teacherUserId, teacherUserId, teacherUserId]
+      [ctx.userId, ctx.userId, currentSessionId, ctx.userId, ctx.userId, ctx.userId]
     )
 
     return NextResponse.json({ data: classes })

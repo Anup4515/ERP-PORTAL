@@ -1,27 +1,16 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "teacher") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    const school_id = session.user.school_id
-    const teacherUserId = session.user.user_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["teacher"])
+    if (isAuthError(ctx)) return ctx
 
     // Get period config
     const config = await executeQuery(
       "SELECT * FROM erp_timetable_config WHERE partner_id = ? ORDER BY period_number",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
 
     // Get all slots for this teacher (teacher's weekly schedule)
@@ -37,7 +26,7 @@ export async function GET(request: Request) {
        LEFT JOIN erp_subjects sub ON sub.id = ts.subject_id
        WHERE ts.teacher_id = ? AND es.partner_id = ? AND es.is_current = 1
        ORDER BY FIELD(ts.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'), ts.period_number`,
-      [teacherUserId, partnerUserId]
+      [ctx.userId, ctx.partnerUserId]
     )
 
     // Get assigned classes (as class teacher, second incharge, or subject teacher)
@@ -51,7 +40,7 @@ export async function GET(request: Request) {
          AND (ecs.class_teacher_id = ? OR ecs.second_incharge_id = ?
               OR ecs.id IN (SELECT class_section_id FROM erp_subjects WHERE teacher_id = ?))
        ORDER BY c.name, sec.name`,
-      [partnerUserId, teacherUserId, teacherUserId, teacherUserId]
+      [ctx.partnerUserId, ctx.userId, ctx.userId, ctx.userId]
     )
 
     // Get class_section_id from query params for class timetable view

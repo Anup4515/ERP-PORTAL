@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(
@@ -8,15 +8,8 @@ export async function GET(
 ) {
   try {
     const { id: examId } = await params
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const ctx = await getAuthContext(["school_admin", "teacher"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify exam belongs to partner
     const examCheck = await executeQuery<{ id: number }[]>(
@@ -24,7 +17,7 @@ export async function GET(
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE e.id = ? AND es.partner_id = ?`,
-      [examId, partnerRows[0].user_id]
+      [examId, ctx.partnerUserId]
     )
     if (examCheck.length === 0) return NextResponse.json({ error: "Exam not found" }, { status: 404 })
 
@@ -50,16 +43,8 @@ export async function POST(
 ) {
   try {
     const { id: examId } = await params
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify exam and get class_section_id + date range
     const examRows = await executeQuery<{ id: number; class_section_id: number; start_date: string | null; end_date: string | null }[]>(
@@ -67,7 +52,7 @@ export async function POST(
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE e.id = ? AND es.partner_id = ?`,
-      [examId, partnerRows[0].user_id]
+      [examId, ctx.partnerUserId]
     )
     if (examRows.length === 0) return NextResponse.json({ error: "Exam not found" }, { status: 404 })
 
@@ -125,21 +110,12 @@ export async function DELETE(
 ) {
   try {
     const { id: examId } = await params
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const { searchParams } = new URL(request.url)
     const scheduleId = searchParams.get("schedule_id")
     if (!scheduleId) return NextResponse.json({ error: "schedule_id is required" }, { status: 400 })
-
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
 
     // Verify ownership
     const check = await executeQuery<{ id: number }[]>(
@@ -148,7 +124,7 @@ export async function DELETE(
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions sess ON sess.id = ecs.session_id
        WHERE es.id = ? AND es.exam_id = ? AND sess.partner_id = ?`,
-      [scheduleId, examId, partnerRows[0].user_id]
+      [scheduleId, examId, ctx.partnerUserId]
     )
     if (check.length === 0) return NextResponse.json({ error: "Schedule not found" }, { status: 404 })
 

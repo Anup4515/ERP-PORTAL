@@ -38,7 +38,7 @@ interface TeacherForm {
   phone_number: string;
   subject_specialization: string;
   qualification: string;
-  experience: string;
+  date_of_joining: string;
 }
 
 const emptyForm: TeacherForm = {
@@ -48,7 +48,7 @@ const emptyForm: TeacherForm = {
   phone_number: "",
   subject_specialization: "",
   qualification: "",
-  experience: "",
+  date_of_joining: "",
 };
 
 export default function TeachersListPage() {
@@ -117,8 +117,11 @@ export default function TeachersListPage() {
     if (form.phone_number.trim() && !/^\d{10}$/.test(form.phone_number.trim())) {
       errors.phone_number = "Phone number must be exactly 10 digits";
     }
-    if (form.experience.trim() && (isNaN(Number(form.experience)) || Number(form.experience) < 0)) {
-      errors.experience = "Experience must be a positive number";
+    if (form.date_of_joining) {
+      const doj = new Date(form.date_of_joining);
+      if (doj > new Date()) {
+        errors.date_of_joining = "Date of joining cannot be in the future";
+      }
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -137,7 +140,7 @@ export default function TeachersListPage() {
       if (form.subject_specialization)
         body.subject_specialization = form.subject_specialization;
       if (form.qualification) body.qualification = form.qualification;
-      if (form.experience) body.experience = Number(form.experience);
+      if (form.date_of_joining) body.date_of_joining = form.date_of_joining;
 
       const res = await fetch("/api/teachers", {
         method: "POST",
@@ -210,8 +213,17 @@ export default function TeachersListPage() {
     {
       key: "experience",
       label: "Experience",
-      render: (row: Record<string, unknown>) =>
-        row.experience != null ? `${row.experience} yrs` : "-",
+      render: (row: Record<string, unknown>) => {
+        const doj = row.date_of_joining as string | null;
+        if (!doj) return row.experience != null ? `${row.experience} yrs` : "-";
+        const joining = new Date(doj);
+        const now = new Date();
+        const totalMonths = (now.getFullYear() - joining.getFullYear()) * 12 + (now.getMonth() - joining.getMonth());
+        const years = Math.floor(totalMonths / 12);
+        const months = totalMonths % 12;
+        if (years > 0) return `${years} yr${years > 1 ? "s" : ""}${months > 0 ? ` ${months} mo` : ""}`;
+        return months > 0 ? `${months} mo` : "< 1 mo";
+      },
     },
     {
       key: "actions",
@@ -289,14 +301,27 @@ export default function TeachersListPage() {
         placeholder="e.g. M.Sc, B.Ed"
       />
       <Input
-        label="Experience (years)"
-        name="experience"
-        type="number"
-        value={form.experience}
+        label="Date of Joining"
+        name="date_of_joining"
+        type="date"
+        value={form.date_of_joining}
         onChange={handleFormChange}
-        error={formErrors.experience}
-        placeholder="Years of experience"
+        error={formErrors.date_of_joining}
       />
+      {form.date_of_joining && new Date(form.date_of_joining) <= new Date() && (
+        <p className="text-sm text-gray-600 -mt-2">
+          Experience: <span className="font-medium text-primary-700">
+            {(() => {
+              const doj = new Date(form.date_of_joining);
+              const now = new Date();
+              const years = Math.floor((now.getTime() - doj.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+              const months = Math.floor(((now.getTime() - doj.getTime()) / (1000 * 60 * 60 * 24 * 30.44)) % 12);
+              if (years > 0) return `${years} year${years > 1 ? "s" : ""}${months > 0 ? ` ${months} month${months > 1 ? "s" : ""}` : ""}`;
+              return `${months} month${months !== 1 ? "s" : ""}`;
+            })()}
+          </span> (auto-calculated)
+        </p>
+      )}
       <div className="flex items-center justify-end gap-3 pt-2">
         <Button
           variant="ghost"

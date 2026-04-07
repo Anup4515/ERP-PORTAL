@@ -1,20 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin", "teacher"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { class_section_id, date, records } = body
@@ -31,13 +22,13 @@ export async function POST(request: Request) {
       `SELECT ecs.id FROM erp_class_sections ecs
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE ecs.id = ? AND es.partner_id = ?`,
-      [class_section_id, partnerUserId]
+      [class_section_id, ctx.partnerUserId]
     )
     if (csCheck.length === 0) {
       return NextResponse.json({ error: "Class section not found" }, { status: 404 })
     }
 
-    // Check if date is a holiday (calendar is session-level)
+    // Check if date is a holiday
     const holidayCheck = await executeQuery<{ is_holiday: number }[]>(
       `SELECT cd.is_holiday FROM erp_calendar_days cd
        JOIN erp_class_sections ecs ON ecs.session_id = cd.session_id
@@ -48,35 +39,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Cannot mark attendance on a holiday" }, { status: 400 })
     }
 
-    const markedBy = session.user.user_id
+    const markedBy = ctx.userId
 
+    // Pre-compute rows
+    const rows: (string | number | null)[][] = []
+    for (const record of records) {
+      const { enrollment_id, status, remarks } = record
+      if (!enrollment_id || !status) continue
+      rows.push([enrollment_id, date, status, remarks || null, markedBy])
+    }
+
+    if (rows.length === 0) {
+      return NextResponse.json({ message: "No records to save" })
+    }
+
+    // Batch insert in chunks of 50
+    const BATCH_SIZE = 50
     await executeTransaction(async (connection) => {
-      for (const record of records) {
-        const { enrollment_id, status, remarks } = record
-        if (!enrollment_id || !status) continue
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE)
+        const placeholders = batch.map(() => "(?, ?, ?, ?, ?, NOW(), NOW())").join(", ")
+        const flatParams = batch.flat()
 
-        // Check if record already exists
-        const [existing] = await connection.execute(
-          "SELECT id FROM erp_attendance_records WHERE student_enrollment_id = ? AND date = ?",
-          [enrollment_id, date]
+        await connection.execute(
+          `INSERT INTO erp_attendance_records (student_enrollment_id, date, status, remarks, marked_by, created_at, updated_at)
+           VALUES ${placeholders}
+           ON DUPLICATE KEY UPDATE
+             status = VALUES(status),
+             remarks = VALUES(remarks),
+             marked_by = VALUES(marked_by),
+             updated_at = NOW()`,
+          flatParams
         )
-
-        if ((existing as any[]).length > 0) {
-          // Update existing
-          await connection.execute(
-            `UPDATE erp_attendance_records
-             SET status = ?, remarks = ?, marked_by = ?, updated_at = NOW()
-             WHERE student_enrollment_id = ? AND date = ?`,
-            [status, remarks || null, markedBy, enrollment_id, date]
-          )
-        } else {
-          // Insert new
-          await connection.execute(
-            `INSERT INTO erp_attendance_records (student_enrollment_id, date, status, remarks, marked_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-            [enrollment_id, date, status, remarks || null, markedBy]
-          )
-        }
       }
     })
 

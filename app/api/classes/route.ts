@@ -1,47 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET() {
   try {
-    const session = await auth()
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    if (session.user.role !== "school_admin") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
-
-    const school_id = session.user.school_id
-
-    if (!school_id) {
-      return NextResponse.json(
-        { error: "No partner profile" },
-        { status: 400 }
-      )
-    }
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-
-    if (partnerRows.length === 0) {
-      return NextResponse.json(
-        { error: "Partner not found" },
-        { status: 404 }
-      )
-    }
-
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const rows = await executeQuery<Record<string, unknown>[]>(
       `SELECT c.id, c.name, c.code, c.grade_level, c.display_order, c.status,
@@ -53,7 +17,7 @@ export async function GET() {
          AND ecs.session_id = (SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1)
        WHERE c.partner_id = ? AND c.status = 'active'
        ORDER BY c.display_order, c.name, s.name`,
-      [partnerUserId, partnerUserId]
+      [ctx.partnerUserId, ctx.partnerUserId]
     )
 
     // Group rows by class, nesting sections array under each class
@@ -101,44 +65,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    if (session.user.role !== "school_admin") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
-
-    const school_id = session.user.school_id
-
-    if (!school_id) {
-      return NextResponse.json(
-        { error: "No partner profile" },
-        { status: 400 }
-      )
-    }
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-
-    if (partnerRows.length === 0) {
-      return NextResponse.json(
-        { error: "Partner not found" },
-        { status: 404 }
-      )
-    }
-
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { name, code, grade_level, display_order, sections } = body
@@ -155,7 +83,7 @@ export async function POST(request: Request) {
       `INSERT INTO classes (partner_id, name, code, grade_level, display_order, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
       [
-        partnerUserId,
+        ctx.partnerUserId,
         name.trim(),
         code || null,
         grade_level ?? null,
@@ -172,7 +100,7 @@ export async function POST(request: Request) {
       // Get current session for linking
       const sessionRows = await executeQuery<{ id: number }[]>(
         "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-        [partnerUserId]
+        [ctx.partnerUserId]
       )
 
       const currentSessionId = sessionRows.length > 0 ? sessionRows[0].id : null

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function GET(
@@ -9,26 +9,17 @@ export async function GET(
   try {
     const { id } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const teachers = await executeQuery(
       `SELECT u.id as user_id, u.name, u.email, u.phone_number,
               t.id as teacher_id, t.subject_specialization, t.qualification, t.experience,
-              t.teacher_type, t.bio, t.address, t.profile_image, t.number_of_hours
+              t.teacher_type, t.bio, t.address, t.profile_image, t.number_of_hours, t.date_of_joining
        FROM users u
        JOIN teachers t ON t.user_id = u.id
        WHERE u.id = ? AND t.partner_id = ? AND u.role_id = 5`,
-      [id, school_id]
+      [id, ctx.schoolId]
     )
 
     if ((teachers as any[]).length === 0) {
@@ -49,31 +40,22 @@ export async function PUT(
   try {
     const { id } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify teacher belongs to this partner
     const teacherRows = await executeQuery<{ id: number }[]>(
       `SELECT t.id FROM teachers t
        JOIN users u ON u.id = t.user_id
        WHERE t.user_id = ? AND t.partner_id = ? AND u.role_id = 5`,
-      [id, school_id]
+      [id, ctx.schoolId]
     )
     if (teacherRows.length === 0) {
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
     }
 
     const body = await request.json()
-    const { name, phone_number, subject_specialization, qualification, experience, bio, address } = body
+    const { name, phone_number, subject_specialization, qualification, date_of_joining, bio, address } = body
 
     await executeTransaction(async (connection) => {
       // Update users table
@@ -111,9 +93,20 @@ export async function PUT(
         teacherFields.push("qualification = ?")
         teacherValues.push(qualification)
       }
-      if (experience !== undefined) {
-        teacherFields.push("experience = ?")
-        teacherValues.push(experience)
+      if (date_of_joining !== undefined) {
+        teacherFields.push("date_of_joining = ?")
+        teacherValues.push(date_of_joining || null)
+        // Auto-calculate experience from date_of_joining
+        if (date_of_joining) {
+          const joiningDate = new Date(date_of_joining)
+          const now = new Date()
+          const exp = Math.max(0, Math.floor((now.getTime() - joiningDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)))
+          teacherFields.push("experience = ?")
+          teacherValues.push(exp)
+        } else {
+          teacherFields.push("experience = ?")
+          teacherValues.push(null)
+        }
       }
       if (bio !== undefined) {
         teacherFields.push("bio = ?")
@@ -126,7 +119,7 @@ export async function PUT(
 
       if (teacherFields.length > 0) {
         teacherFields.push("updated_at = NOW()")
-        teacherValues.push(id as any, school_id as any)
+        teacherValues.push(id as any, ctx.schoolId as any)
 
         await connection.execute(
           `UPDATE teachers SET ${teacherFields.join(", ")} WHERE user_id = ? AND partner_id = ?`,
@@ -149,25 +142,15 @@ export async function DELETE(
   try {
     const { id } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify teacher belongs to this partner
     const teacherRows = await executeQuery<{ id: number }[]>(
       `SELECT t.id FROM teachers t
        JOIN users u ON u.id = t.user_id
        WHERE t.user_id = ? AND t.partner_id = ? AND u.role_id = 5`,
-      [id, school_id]
+      [id, ctx.schoolId]
     )
     if (teacherRows.length === 0) {
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
@@ -179,7 +162,7 @@ export async function DELETE(
        SET teacher_ids = JSON_REMOVE(teacher_ids, JSON_UNQUOTE(JSON_SEARCH(teacher_ids, 'one', ?))),
            updated_at = NOW()
        WHERE partner_id = ?`,
-      [id, partnerUserId]
+      [id, ctx.partnerUserId]
     )
 
     return NextResponse.json({ message: "Teacher removed successfully" })

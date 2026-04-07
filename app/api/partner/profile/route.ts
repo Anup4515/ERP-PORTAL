@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/app/lib/auth"
 import { executeQuery } from "@/app/lib/db"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 
 export async function GET() {
   try {
@@ -40,30 +41,8 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const session = await auth()
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    if (session.user.role !== "school_admin") {
-      return NextResponse.json(
-        { error: "Only school admins can update partner profiles" },
-        { status: 403 }
-      )
-    }
-
-    const school_id = session.user.school_id
-
-    if (!school_id) {
-      return NextResponse.json(
-        { error: "No partner profile found" },
-        { status: 400 }
-      )
-    }
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const {
@@ -107,7 +86,7 @@ export async function PUT(request: Request) {
         registration_number || null,
         affiliated_board || null,
         website || null,
-        school_id,
+        ctx.schoolId,
       ]
     )
 

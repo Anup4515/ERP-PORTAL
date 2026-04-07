@@ -1,25 +1,15 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET() {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const schemes = await executeQuery(
       "SELECT * FROM erp_grading_schemes WHERE partner_id = ? ORDER BY is_default DESC, name",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
 
     return NextResponse.json({ data: schemes })
@@ -31,18 +21,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { name, type, session_id, is_default } = body
@@ -66,14 +46,14 @@ export async function POST(request: Request) {
     if (is_default) {
       await executeQuery(
         "UPDATE erp_grading_schemes SET is_default = 0 WHERE partner_id = ?",
-        [partnerUserId]
+        [ctx.partnerUserId]
       )
     }
 
     const result = await executeQuery<{ insertId: number }>(
       `INSERT INTO erp_grading_schemes (partner_id, session_id, name, type, is_default, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-      [partnerUserId, session_id || null, name, type, is_default ? 1 : 0]
+      [ctx.partnerUserId, session_id || null, name, type, is_default ? 1 : 0]
     )
 
     return NextResponse.json(

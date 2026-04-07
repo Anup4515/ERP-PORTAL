@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 function parseCSV(text: string): { headers: string[]; rows: string[][] } {
@@ -33,18 +33,8 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const formData = await request.formData()
     const file = formData.get("file") as File | null
@@ -85,7 +75,7 @@ export async function POST(request: Request) {
       `SELECT ecs.id FROM erp_class_sections ecs
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE ecs.id IN (${placeholders}) AND es.partner_id = ?`,
-      [...classSectionIds, partnerUserId]
+      [...classSectionIds, ctx.partnerUserId]
     )
     const validSectionIds = new Set(validSections.map((s) => String(s.id)))
 
@@ -123,7 +113,7 @@ export async function POST(request: Request) {
               phone, father_name, mother_name, status, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
             [
-              session.user.user_id || null,
+              ctx.userId || null,
               first_name,
               last_name,
               email,

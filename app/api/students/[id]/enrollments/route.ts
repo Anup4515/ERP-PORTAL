@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(
@@ -9,18 +9,8 @@ export async function GET(
   try {
     const { id } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const enrollments = await executeQuery(
       `SELECT e.*, c.name as class_name, sec.name as section_name, es.name as session_name
@@ -31,7 +21,7 @@ export async function GET(
        JOIN sections sec ON sec.id = ecs.section_id
        WHERE e.student_id = ? AND es.partner_id = ?
        ORDER BY es.start_date DESC`,
-      [id, partnerUserId]
+      [id, ctx.partnerUserId]
     )
 
     return NextResponse.json({ data: enrollments })
@@ -48,18 +38,8 @@ export async function POST(
   try {
     const { id: studentId } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { class_section_id, roll_number, student_type } = body
@@ -76,7 +56,7 @@ export async function POST(
       `SELECT ecs.id FROM erp_class_sections ecs
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE ecs.id = ? AND es.partner_id = ?`,
-      [class_section_id, partnerUserId]
+      [class_section_id, ctx.partnerUserId]
     )
     if (ownershipCheck.length === 0) {
       return NextResponse.json({ error: "Class section not found" }, { status: 404 })
@@ -89,7 +69,7 @@ export async function POST(
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE st.id = ? AND es.partner_id = ? AND st.deleted_at IS NULL`,
-      [studentId, partnerUserId]
+      [studentId, ctx.partnerUserId]
     )
     if (studentCheck.length === 0) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 })

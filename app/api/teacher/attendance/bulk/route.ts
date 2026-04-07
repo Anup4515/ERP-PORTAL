@@ -1,23 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "teacher") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    const school_id = session.user.school_id
-    const teacherUserId = session.user.user_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["teacher"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { class_section_id, records } = body
@@ -30,7 +18,7 @@ export async function POST(request: Request) {
     // Verify teacher assignment
     const sessRows = await executeQuery<{ id: number }[]>(
       "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
     if (sessRows.length === 0) {
       return NextResponse.json({ error: "No active session" }, { status: 400 })
@@ -42,7 +30,7 @@ export async function POST(request: Request) {
        WHERE ecs.id = ? AND ecs.session_id = ?
          AND (ecs.class_teacher_id = ? OR ecs.second_incharge_id = ?
               OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?))`,
-      [class_section_id, currentSessionId, teacherUserId, teacherUserId, teacherUserId]
+      [class_section_id, currentSessionId, ctx.userId, ctx.userId, ctx.userId]
     )
     if (csCheck.length === 0) {
       return NextResponse.json({ error: "Not authorized for this class" }, { status: 403 })
@@ -72,13 +60,13 @@ export async function POST(request: Request) {
             `UPDATE erp_attendance_records
              SET status = ?, marked_by = ?, updated_at = NOW()
              WHERE student_enrollment_id = ? AND date = ?`,
-            [status, teacherUserId, enrollment_id, date]
+            [status, ctx.userId, enrollment_id, date]
           )
         } else {
           await connection.execute(
             `INSERT INTO erp_attendance_records (student_enrollment_id, date, status, marked_by, created_at, updated_at)
              VALUES (?, ?, ?, ?, NOW(), NOW())`,
-            [enrollment_id, date, status, teacherUserId]
+            [enrollment_id, date, status, ctx.userId]
           )
         }
       }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(
@@ -9,18 +9,8 @@ export async function GET(
   try {
     const { id } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const students = await executeQuery(
       `SELECT st.*, e.id as enrollment_id, e.class_section_id, e.roll_number, e.student_type, e.status as enrollment_status,
@@ -43,7 +33,7 @@ export async function GET(
            JOIN erp_sessions es3 ON es3.id = ecs3.session_id
            WHERE e2.student_id = st.id AND es3.partner_id = ?
          )`,
-      [partnerUserId, id, partnerUserId]
+      [ctx.partnerUserId, id, ctx.partnerUserId]
     )
 
     if (students.length === 0) {
@@ -64,18 +54,8 @@ export async function PUT(
   try {
     const { id } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify student belongs to partner
     const ownershipCheck = await executeQuery<{ id: number }[]>(
@@ -84,7 +64,7 @@ export async function PUT(
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE st.id = ? AND es.partner_id = ? AND st.deleted_at IS NULL`,
-      [id, partnerUserId]
+      [id, ctx.partnerUserId]
     )
     if (ownershipCheck.length === 0) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 })
@@ -157,18 +137,8 @@ export async function DELETE(
   try {
     const { id } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify student belongs to partner
     const ownershipCheck = await executeQuery<{ id: number }[]>(
@@ -177,7 +147,7 @@ export async function DELETE(
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE st.id = ? AND es.partner_id = ? AND st.deleted_at IS NULL`,
-      [id, partnerUserId]
+      [id, ctx.partnerUserId]
     )
     if (ownershipCheck.length === 0) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 })

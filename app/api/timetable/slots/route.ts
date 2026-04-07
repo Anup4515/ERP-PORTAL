@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin", "teacher"])
+    if (isAuthError(ctx)) return ctx
 
     const { searchParams } = new URL(request.url)
     const classSectionId = searchParams.get("class_section_id")
@@ -27,7 +19,7 @@ export async function GET(request: Request) {
       `SELECT ecs.id FROM erp_class_sections ecs
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE ecs.id = ? AND es.partner_id = ?`,
-      [classSectionId, partnerUserId]
+      [classSectionId, ctx.partnerUserId]
     )
     if (csCheck.length === 0) return NextResponse.json({ error: "Class section not found" }, { status: 404 })
 
@@ -53,17 +45,8 @@ export async function GET(request: Request) {
 // Bulk save slots for a class-section
 export async function PUT(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?", [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { class_section_id, slots } = body
@@ -78,7 +61,7 @@ export async function PUT(request: Request) {
       `SELECT ecs.id FROM erp_class_sections ecs
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE ecs.id = ? AND es.partner_id = ?`,
-      [class_section_id, partnerUserId]
+      [class_section_id, ctx.partnerUserId]
     )
     if (csCheck.length === 0) return NextResponse.json({ error: "Class section not found" }, { status: 404 })
 

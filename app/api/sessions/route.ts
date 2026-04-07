@@ -1,25 +1,16 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function GET() {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     // Both school_admin and teacher can read sessions
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin", "teacher"])
+    if (isAuthError(ctx)) return ctx
 
     const sessions = await executeQuery(
       "SELECT * FROM erp_sessions WHERE partner_id = ? ORDER BY start_date DESC",
-      [partnerUserId]
+      [ctx.partnerUserId]
     )
 
     return NextResponse.json({ data: sessions })
@@ -31,18 +22,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
     const { name, start_date, end_date } = body
@@ -64,7 +45,7 @@ export async function POST(request: Request) {
     const result = await executeQuery<{ insertId: number }>(
       `INSERT INTO erp_sessions (partner_id, name, start_date, end_date, created_at, updated_at)
        VALUES (?, ?, ?, ?, NOW(), NOW())`,
-      [partnerUserId, name, start_date, end_date]
+      [ctx.partnerUserId, name, start_date, end_date]
     )
 
     const newSessionId = (result as any).insertId

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/app/lib/auth"
+import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function GET(
@@ -9,25 +9,15 @@ export async function GET(
   try {
     const { id: teacherUserId } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify teacher belongs to this partner
     const teacherRows = await executeQuery<{ id: number }[]>(
       `SELECT t.id FROM teachers t
        JOIN users u ON u.id = t.user_id
        WHERE t.user_id = ? AND t.partner_id = ? AND u.role_id = 5`,
-      [teacherUserId, school_id]
+      [teacherUserId, ctx.schoolId]
     )
     if (teacherRows.length === 0) {
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
@@ -44,7 +34,7 @@ export async function GET(
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections s ON s.id = ecs.section_id
        WHERE es.partner_id = ? AND (ecs.class_teacher_id = ? OR ecs.second_incharge_id = ?)`,
-      [teacherUserId, teacherUserId, partnerUserId, teacherUserId, teacherUserId]
+      [teacherUserId, teacherUserId, ctx.partnerUserId, teacherUserId, teacherUserId]
     )
 
     // Get subject assignments
@@ -56,7 +46,7 @@ export async function GET(
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
        WHERE sub.teacher_id = ? AND es.partner_id = ?`,
-      [teacherUserId, partnerUserId]
+      [teacherUserId, ctx.partnerUserId]
     )
 
     return NextResponse.json({
@@ -78,25 +68,15 @@ export async function PUT(
   try {
     const { id: teacherUserId } = await params
 
-    const session = await auth()
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (session.user.role !== "school_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const school_id = session.user.school_id
-    if (!school_id) return NextResponse.json({ error: "No partner profile" }, { status: 400 })
-
-    const partnerRows = await executeQuery<{ user_id: number }[]>(
-      "SELECT user_id FROM partners WHERE id = ?",
-      [school_id]
-    )
-    if (partnerRows.length === 0) return NextResponse.json({ error: "Partner not found" }, { status: 404 })
-    const partnerUserId = partnerRows[0].user_id
+    const ctx = await getAuthContext(["school_admin"])
+    if (isAuthError(ctx)) return ctx
 
     // Verify teacher belongs to this partner
     const teacherRows = await executeQuery<{ id: number }[]>(
       `SELECT t.id FROM teachers t
        JOIN users u ON u.id = t.user_id
        WHERE t.user_id = ? AND t.partner_id = ? AND u.role_id = 5`,
-      [teacherUserId, school_id]
+      [teacherUserId, ctx.schoolId]
     )
     if (teacherRows.length === 0) {
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
@@ -114,14 +94,14 @@ export async function PUT(
            JOIN erp_sessions es ON es.id = ecs.session_id
            SET ecs.class_teacher_id = NULL, ecs.updated_at = NOW()
            WHERE ecs.class_teacher_id = ? AND es.partner_id = ?`,
-          [teacherUserId, partnerUserId]
+          [teacherUserId, ctx.partnerUserId]
         )
         await connection.execute(
           `UPDATE erp_class_sections ecs
            JOIN erp_sessions es ON es.id = ecs.session_id
            SET ecs.second_incharge_id = NULL, ecs.updated_at = NOW()
            WHERE ecs.second_incharge_id = ? AND es.partner_id = ?`,
-          [teacherUserId, partnerUserId]
+          [teacherUserId, ctx.partnerUserId]
         )
 
         // Apply new class assignments
@@ -134,7 +114,7 @@ export async function PUT(
             `SELECT ecs.id FROM erp_class_sections ecs
              JOIN erp_sessions es ON es.id = ecs.session_id
              WHERE ecs.id = ? AND es.partner_id = ?`,
-            [class_section_id, partnerUserId]
+            [class_section_id, ctx.partnerUserId]
           )
           if ((csRows as any[]).length === 0) continue
 
@@ -185,7 +165,7 @@ export async function PUT(
            JOIN erp_sessions es ON es.id = ecs.session_id
            SET sub.teacher_id = NULL, sub.updated_at = NOW()
            WHERE sub.teacher_id = ? AND es.partner_id = ?`,
-          [teacherUserId, partnerUserId]
+          [teacherUserId, ctx.partnerUserId]
         )
 
         // Apply new subject assignments
@@ -196,7 +176,7 @@ export async function PUT(
              JOIN erp_class_sections ecs ON ecs.id = sub.class_section_id
              JOIN erp_sessions es ON es.id = ecs.session_id
              WHERE sub.id = ? AND es.partner_id = ?`,
-            [subjectId, partnerUserId]
+            [subjectId, ctx.partnerUserId]
           )
           if ((subRows as any[]).length === 0) continue
 

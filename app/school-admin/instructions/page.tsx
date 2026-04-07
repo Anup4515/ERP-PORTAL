@@ -6,9 +6,12 @@ import {
   CalendarDaysIcon,
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
+  ClockIcon,
   Cog6ToothIcon,
   DocumentTextIcon,
+  SparklesIcon,
   UserGroupIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 
 interface StepProps {
@@ -167,6 +170,48 @@ export default function InstructionsPage() {
             "Teachers can also enter marks from their dashboard for their assigned classes",
           ]}
         />
+
+        <Step
+          number={8}
+          title="Manage Timetable"
+          icon={<ClockIcon className="w-5 h-5" />}
+          description="Go to Timetable from the sidebar. Set up period timings and assign subjects to slots."
+          items={[
+            "First configure period timings in Settings — define period numbers, start/end times, and slot types (class, break, lunch, assembly)",
+            "Go to Timetable page and select a class-section to view/edit its weekly timetable",
+            "Assign subjects and teachers to each period slot for each day of the week",
+            "Break, lunch, and assembly slots are automatically shown and cannot have subject assignments",
+            "Teachers can view their own weekly schedule and class timetables from their dashboard",
+          ]}
+        />
+
+        <Step
+          number={9}
+          title="Manage Staff"
+          icon={<UsersIcon className="w-5 h-5" />}
+          description="Go to Staff from the sidebar. Add non-teaching staff members."
+          items={[
+            "Click 'Add Staff' to add non-teaching staff — fill in name, designation, department, phone, email, and qualification",
+            "Staff members are separate from teachers — they don't get login access",
+            "Use this for office staff, lab assistants, librarians, peons, etc.",
+            "Edit or remove staff members using the action buttons in the list",
+          ]}
+        />
+
+        <Step
+          number={10}
+          title="Holistic Development"
+          icon={<SparklesIcon className="w-5 h-5" />}
+          description="Go to Holistic from the sidebar. View monthly holistic ratings given by teachers."
+          items={[
+            "First set up holistic parameters in Settings → Holistic tab — click 'Load Defaults' to create stage-wise parameters (Foundational, Preparatory, Middle, Secondary)",
+            "Each stage has 5 parameters with 5 sub-parameters each, tailored for that age group",
+            "You can add custom parameters and sub-parameters for any stage",
+            "On the Holistic page, select a class and parameter to view ratings (read-only for admin)",
+            "Parameters are automatically filtered based on the selected class grade level/stage",
+            "Teachers rate students from their dashboard — the ratings feed into report cards",
+          ]}
+        />
       </div>
 
       {/* Tips */}
@@ -194,6 +239,18 @@ export default function InstructionsPage() {
           <li className="flex items-start gap-2 text-sm text-yellow-800">
             <span className="mt-0.5">&#9670;</span>
             Teachers can only see classes assigned to them — assign teachers via the teacher detail page
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            Set up timetable period config before assigning slots — go to Settings first
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            Load holistic defaults before teachers can start rating — go to Settings → Holistic → Load Defaults
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            Set grade_level on classes (in Settings → Classes) so holistic parameters are correctly filtered by stage
           </li>
         </ul>
       </Card>

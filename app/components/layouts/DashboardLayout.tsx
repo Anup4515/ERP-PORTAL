@@ -51,7 +51,7 @@ const schoolAdminNav: NavItem[] = [
   { label: "Marks", href: "/school-admin/marks", icon: ChartBarIcon },
   { label: "Timetable", href: "/school-admin/timetable", icon: ClockIcon },
   { label: "Staff", href: "/school-admin/staff", icon: UsersIcon },
-  // { label: "Holistic", href: "/school-admin/holistic", icon: SparklesIcon },
+  { label: "Holistic", href: "/school-admin/holistic", icon: SparklesIcon },
   // {
   //   label: "Reports",
   //   href: "/school-admin/reports",
@@ -78,7 +78,7 @@ const teacherNav: NavItem[] = [
   { label: "Marks", href: "/teacher/marks", icon: ChartBarIcon },
   { label: "Timetable", href: "/teacher/timetable", icon: ClockIcon },
   { label: "Instructions", href: "/teacher/instructions", icon: InformationCircleIcon },
-  // { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
+  { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
   // { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },
 ];
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
+import { createStudentSchema, parseOrError } from "@/app/lib/validations"
 
 export async function GET(request: Request) {
   try {
@@ -67,6 +68,9 @@ export async function POST(request: Request) {
     if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
+    const parsed = parseOrError(createStudentSchema, body)
+    if (!parsed.success) return parsed.response
+
     const {
       first_name, last_name, email, class_section_id,
       middle_name, gender, date_of_birth, phone, alternate_phone,
@@ -74,14 +78,7 @@ export async function POST(request: Request) {
       father_name, mother_name, guardian_name, guardian_phone, guardian_email,
       profile_image, status, height, weight, blood_group,
       roll_number, student_type
-    } = body
-
-    if (!first_name || !last_name || !email || !class_section_id) {
-      return NextResponse.json(
-        { error: "first_name, last_name, email, and class_section_id are required" },
-        { status: 400 }
-      )
-    }
+    } = parsed.data
 
     // Verify class_section_id belongs to this partner
     const ownershipCheck = await executeQuery<{ id: number }[]>(

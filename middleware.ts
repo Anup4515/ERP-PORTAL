@@ -1,9 +1,27 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
+import { rateLimit } from "@/app/lib/rate-limit"
+
+const loginLimiter = rateLimit({ interval: 60_000, maxRequests: 5 })
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+
+  // Rate limit login attempts (5 per minute per IP)
+  if (pathname === "/api/auth/callback/credentials" && req.method === "POST") {
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown"
+    const result = loginLimiter.check(ip)
+    if (!result.success) {
+      return NextResponse.json(
+        { error: "Too many login attempts. Please try again later." },
+        { status: 429 }
+      )
+    }
+  }
 
   const token = await getToken({ req, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET })
 

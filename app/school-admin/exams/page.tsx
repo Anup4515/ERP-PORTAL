@@ -52,6 +52,9 @@ export default function ExamsPage() {
   const [filterCs, setFilterCs] = useState("");
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 50;
 
   // Add modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -79,18 +82,23 @@ export default function ExamsPage() {
 
   const fetchExams = useCallback(async () => {
     setLoading(true);
-    const params = filterCs ? `?class_section_id=${filterCs}` : "";
+    const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+    if (filterCs) params.set("class_section_id", filterCs);
     try {
-      const res = await fetch(`/api/exams${params}`);
+      const res = await fetch(`/api/exams?${params}`);
       if (res.ok) {
         const json = await res.json();
-        setExams(json.data || []);
+        setExams(json.data?.exams || []);
+        setTotal(json.data?.total || 0);
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [filterCs]);
+  }, [filterCs, page]);
 
   useEffect(() => { fetchExams(); }, [fetchExams]);
+  useEffect(() => { setPage(1); }, [filterCs]);
+
+  const totalPages = Math.ceil(total / pageSize);
 
   const allCsIds = csOptions.map((o) => o.value);
   const allSelected = allCsIds.length > 0 && selectedCsIds.length === allCsIds.length;
@@ -204,6 +212,31 @@ export default function ExamsPage() {
             </table>
           </div>
         </Card>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Create Exam Modal */}

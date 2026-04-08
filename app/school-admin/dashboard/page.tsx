@@ -35,9 +35,8 @@ export default function SchoolAdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
 
-  // Show getting started guide if first-time (no students/teachers yet)
   useEffect(() => {
-    const dismissed = localStorage.getItem("guide_dismissed");
+    const dismissed = sessionStorage.getItem("guide_dismissed");
     if (!dismissed) setShowGuide(true);
   }, []);
 
@@ -76,7 +75,7 @@ export default function SchoolAdminDashboardPage() {
           <button
             onClick={() => {
               setShowGuide(false);
-              localStorage.setItem("guide_dismissed", "1");
+              sessionStorage.setItem("guide_dismissed", "1");
             }}
             className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60 transition-colors z-10"
             title="Dismiss"

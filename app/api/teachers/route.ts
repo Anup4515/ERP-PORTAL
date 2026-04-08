@@ -2,23 +2,46 @@ import { NextResponse } from "next/server"
 import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 import bcrypt from "bcryptjs"
+import { createTeacherSchema, parseOrError } from "@/app/lib/validations"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
+
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get("search")
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)))
+    const offset = (page - 1) * limit
+
+    let whereClause = "WHERE t.partner_id = ? AND u.role_id = 5"
+    const queryParams: (string | number)[] = [ctx.schoolId]
+
+    if (search) {
+      whereClause += " AND (u.name LIKE ? OR u.email LIKE ? OR t.subject_specialization LIKE ?)"
+      const pattern = `%${search}%`
+      queryParams.push(pattern, pattern, pattern)
+    }
+
+    const countResult = await executeQuery<{ total: number }[]>(
+      `SELECT COUNT(*) as total FROM users u JOIN teachers t ON t.user_id = u.id ${whereClause}`,
+      queryParams
+    )
+    const total = countResult[0].total
 
     const teachers = await executeQuery(
       `SELECT u.id as user_id, u.name, u.email, u.phone_number,
               t.id as teacher_id, t.subject_specialization, t.qualification, t.experience, t.teacher_type, t.date_of_joining
        FROM users u
        JOIN teachers t ON t.user_id = u.id
-       WHERE t.partner_id = ? AND u.role_id = 5
-       ORDER BY u.name`,
-      [ctx.schoolId]
+       ${whereClause}
+       ORDER BY u.name
+       LIMIT ${limit} OFFSET ${offset}`,
+      queryParams
     )
 
-    return NextResponse.json({ data: teachers })
+    return NextResponse.json({ data: { teachers, total, page, limit } })
   } catch (error) {
     console.error("Teachers GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -31,14 +54,10 @@ export async function POST(request: Request) {
     if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
-    const { name, email, password, phone_number, subject_specialization, qualification, date_of_joining } = body
+    const parsed = parseOrError(createTeacherSchema, body)
+    if (!parsed.success) return parsed.response
 
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "name, email, and password are required" },
-        { status: 400 }
-      )
-    }
+    const { name, email, password, phone_number, subject_specialization, qualification, date_of_joining } = parsed.data
 
     // Auto-calculate experience from date_of_joining
     let experience: number | null = null

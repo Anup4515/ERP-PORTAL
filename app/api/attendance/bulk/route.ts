@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
+import { bulkAttendanceSchema, parseOrError } from "@/app/lib/validations"
 
 export async function POST(request: Request) {
   try {
@@ -8,14 +9,10 @@ export async function POST(request: Request) {
     if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
-    const { class_section_id, date, records } = body
+    const parsed = parseOrError(bulkAttendanceSchema, body)
+    if (!parsed.success) return parsed.response
 
-    if (!class_section_id || !date || !Array.isArray(records) || records.length === 0) {
-      return NextResponse.json(
-        { error: "class_section_id, date, and records array are required" },
-        { status: 400 }
-      )
-    }
+    const { class_section_id, date, records } = parsed.data
 
     // Verify ownership
     const csCheck = await executeQuery<{ id: number }[]>(

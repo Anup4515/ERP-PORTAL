@@ -39,6 +39,17 @@ export async function GET(request: Request) {
     )
 
     // Overall student-wise total (sum of all subjects)
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)))
+    const offset = (page - 1) * limit
+
+    const rankingCount = await executeQuery<{ total: number }[]>(
+      `SELECT COUNT(DISTINCT m.student_enrollment_id) as total
+       FROM erp_marks m WHERE m.exam_id = ?`,
+      [examId]
+    )
+    const total = rankingCount[0].total
+
     const studentTotals = await executeQuery(
       `SELECT m.student_enrollment_id, se.roll_number, s.first_name, s.last_name,
               SUM(CASE WHEN m.is_absent = 0 THEN m.obtained_marks ELSE 0 END) as total_obtained,
@@ -49,12 +60,16 @@ export async function GET(request: Request) {
        JOIN students s ON s.id = se.student_id
        WHERE m.exam_id = ?
        GROUP BY m.student_enrollment_id, se.roll_number, s.first_name, s.last_name
-       ORDER BY overall_percentage DESC`,
+       ORDER BY overall_percentage DESC
+       LIMIT ${limit} OFFSET ${offset}`,
       [examId]
     )
 
     return NextResponse.json({
-      data: { subject_stats: subjectStats, student_rankings: studentTotals },
+      data: {
+        subject_stats: subjectStats,
+        student_rankings: { rankings: studentTotals, total, page, limit },
+      },
     })
   } catch (error) {
     console.error("Marks stats GET error:", error)

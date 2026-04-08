@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
+import { bulkMarksSchema, parseOrError } from "@/app/lib/validations"
 
 export async function POST(request: Request) {
   try {
@@ -8,11 +9,10 @@ export async function POST(request: Request) {
     if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
-    const { exam_id, subject_id, marks } = body
+    const parsed = parseOrError(bulkMarksSchema, body)
+    if (!parsed.success) return parsed.response
 
-    if (!exam_id || !subject_id || !Array.isArray(marks) || marks.length === 0) {
-      return NextResponse.json({ error: "exam_id, subject_id, and marks array are required" }, { status: 400 })
-    }
+    const { exam_id, subject_id, marks } = parsed.data
 
     // Verify exam
     const examRows = await executeQuery<{ class_section_id: number }[]>(

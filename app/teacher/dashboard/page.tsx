@@ -36,7 +36,7 @@ export default function TeacherDashboardPage() {
   const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
-    const dismissed = localStorage.getItem("teacher_guide_dismissed");
+    const dismissed = sessionStorage.getItem("teacher_guide_dismissed");
     if (!dismissed) setShowGuide(true);
   }, []);
 
@@ -77,7 +77,7 @@ export default function TeacherDashboardPage() {
           <button
             onClick={() => {
               setShowGuide(false);
-              localStorage.setItem("teacher_guide_dismissed", "1");
+              sessionStorage.setItem("teacher_guide_dismissed", "1");
             }}
             className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60 transition-colors z-10"
             title="Dismiss"
@@ -100,7 +100,7 @@ export default function TeacherDashboardPage() {
             </div>
             <Link
               href="/teacher/instructions"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shrink-0 mr-6"
             >
               View Guide
               <ArrowRightIcon className="h-4 w-4" />

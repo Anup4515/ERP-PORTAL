@@ -57,6 +57,9 @@ export default function StaffPage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 50;
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -69,30 +72,29 @@ export default function StaffPage() {
   const fetchStaff = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/staff");
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      if (search.trim()) params.set("search", search.trim());
+      const res = await fetch(`/api/staff?${params}`);
       if (res.ok) {
         const json = await res.json();
-        setStaff(json.data || []);
+        setStaff(json.data?.staff || []);
+        setTotal(json.data?.total || 0);
       }
     } catch {
       /* ignore */
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, search]);
 
   useEffect(() => {
-    fetchStaff();
-  }, [fetchStaff]);
+    const timer = setTimeout(() => { fetchStaff(); }, search ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [fetchStaff, search]);
 
-  const filtered = search.trim()
-    ? staff.filter(
-        (s) =>
-          s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.designation.toLowerCase().includes(search.toLowerCase()) ||
-          s.department?.toLowerCase().includes(search.toLowerCase())
-      )
-    : staff;
+  useEffect(() => { setPage(1); }, [search]);
+
+  const totalPages = Math.ceil(total / pageSize);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -329,10 +331,10 @@ export default function StaffPage() {
       </div>
 
       {/* Summary badges */}
-      {staff.length > 0 && (
+      {total > 0 && (
         <div className="flex flex-wrap gap-2">
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary-50 text-primary-700">
-            Total: {staff.length}
+            Total: {total}
           </span>
           {[...designationCounts.entries()].map(([d, count]) => (
             <span
@@ -399,7 +401,7 @@ export default function StaffPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((s, idx) => (
+                {staff.map((s, idx) => (
                   <tr
                     key={s.id}
                     className={`${
@@ -450,6 +452,31 @@ export default function StaffPage() {
             </table>
           </div>
         </Card>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Add Modal */}

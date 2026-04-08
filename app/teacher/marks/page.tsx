@@ -48,10 +48,10 @@ export default function TeacherMarksPage() {
         // Fetch exams for all assigned classes
         const allExams: Exam[] = [];
         for (const cls of assignedClasses) {
-          const res = await fetch(`/api/exams?class_section_id=${cls.class_section_id}`);
+          const res = await fetch(`/api/exams?class_section_id=${cls.class_section_id}&limit=100`);
           if (res.ok) {
             const ej = await res.json();
-            for (const exam of ej.data || []) {
+            for (const exam of ej.data?.exams || []) {
               if (exam.status === "completed") {
                 allExams.push({ ...exam, class_name: cls.class_name, section_name: cls.section_name });
               }

@@ -42,8 +42,8 @@ export default function AdminMarksPage() {
   // Fetch exams (only completed) when class changes
   useEffect(() => {
     if (!csValue) { setExams([]); setExamId(""); return; }
-    fetch(`/api/exams?class_section_id=${csValue}`).then((r) => r.json()).then((j) => {
-      const completed = (j.data || []).filter((e: Exam) => e.status === "completed");
+    fetch(`/api/exams?class_section_id=${csValue}&limit=100`).then((r) => r.json()).then((j) => {
+      const completed = (j.data?.exams || []).filter((e: Exam) => e.status === "completed");
       setExams(completed);
       setExamId("");
     }).catch(() => {});

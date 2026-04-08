@@ -70,23 +70,21 @@ export default function TimetablePage() {
     Promise.all([
       fetch("/api/classes").then((r) => r.json()),
       fetch("/api/timetable/config").then((r) => r.json()),
-      fetch("/api/teachers").then((r) => r.json()),
-      fetch("/api/staff").then((r) => r.json()),
+      fetch("/api/teachers?limit=100").then((r) => r.json()),
+      fetch("/api/staff?limit=100").then((r) => r.json()),
     ]).then(([cj, tj, teachJ, staffJ]) => {
       if (cj.data) setClasses(cj.data);
       if (tj.data) setConfig(tj.data);
       // Merge login-teachers + staff into one list with prefixed IDs
       const allTeachers: Teacher[] = [];
-      if (teachJ.data) {
-        for (const t of teachJ.data) {
-          allTeachers.push({ id: `t:${t.user_id}`, name: t.name });
-        }
+      const teachersList = teachJ.data?.teachers || teachJ.data || [];
+      for (const t of teachersList) {
+        allTeachers.push({ id: `t:${t.user_id}`, name: t.name });
       }
-      if (staffJ.data) {
-        for (const s of staffJ.data) {
-          if (s.status === "active") {
-            allTeachers.push({ id: `s:${s.id}`, name: `${s.name} (${s.designation})` });
-          }
+      const staffList = staffJ.data?.staff || staffJ.data || [];
+      for (const s of staffList) {
+        if (s.status === "active") {
+          allTeachers.push({ id: `s:${s.id}`, name: `${s.name} (${s.designation})` });
         }
       }
       setTeachers(allTeachers);

@@ -13,7 +13,7 @@ function getDbPool(): Pool {
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME || "dev_db",
-      connectionLimit: 10,
+      connectionLimit: 50,
       charset: "utf8mb4",
       timezone: "+00:00",
       waitForConnections: true,

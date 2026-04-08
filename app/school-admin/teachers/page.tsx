@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Button,
@@ -55,6 +55,9 @@ export default function TeachersListPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 50;
 
   // Modal states
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -67,31 +70,30 @@ export default function TeachersListPage() {
   const fetchTeachers = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/teachers");
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      if (search.trim()) params.set("search", search.trim());
+      const res = await fetch(`/api/teachers?${params}`);
       const json = await res.json();
       if (json.data) {
-        setTeachers(json.data);
+        setTeachers(json.data.teachers || []);
+        setTotal(json.data.total || 0);
       }
     } catch {
       // silently fail
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, search]);
 
   useEffect(() => {
-    fetchTeachers();
-  }, [fetchTeachers]);
+    const timer = setTimeout(() => { fetchTeachers(); }, search ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [fetchTeachers, search]);
 
-  const filteredTeachers = useMemo(() => {
-    if (!search.trim()) return teachers;
-    const q = search.toLowerCase();
-    return teachers.filter(
-      (t) =>
-        t.name?.toLowerCase().includes(q) ||
-        t.email?.toLowerCase().includes(q)
-    );
-  }, [teachers, search]);
+  // Reset to page 1 when search changes
+  useEffect(() => { setPage(1); }, [search]);
+
+  const totalPages = Math.ceil(total / pageSize);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -406,22 +408,48 @@ export default function TeachersListPage() {
         <EmptyState
           icon={<UserGroupIcon className="h-12 w-12" />}
           title="No teachers found"
-          description="Get started by adding your first teacher to the system."
-          action={{
+          description={search ? "No teachers match your search." : "Get started by adding your first teacher to the system."}
+          action={!search ? {
             label: "Add Teacher",
             onClick: () => {
               setForm(emptyForm);
               setFormErrors({});
               setIsAddOpen(true);
             },
-          }}
+          } : undefined}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filteredTeachers as unknown as Record<string, unknown>[]}
-          emptyMessage="No teachers match your search."
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={teachers as unknown as Record<string, unknown>[]}
+            emptyMessage="No teachers match your search."
+          />
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-sm text-gray-500">
+                Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Add Modal */}

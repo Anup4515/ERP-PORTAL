@@ -38,6 +38,20 @@ export async function GET(request: Request) {
       [ctx.partnerUserId]
     )
 
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)))
+    const offset = (page - 1) * limit
+
+    const countResult = await executeQuery<{ total: number }[]>(
+      `SELECT COUNT(*) as total
+       FROM erp_exams e
+       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
+       JOIN erp_sessions es ON es.id = ecs.session_id
+       WHERE es.partner_id = ? AND es.is_current = 1${whereExtra}`,
+      params
+    )
+    const total = countResult[0].total
+
     const exams = await executeQuery(
       `SELECT e.*, c.name as class_name, sec.name as section_name
        FROM erp_exams e
@@ -46,11 +60,12 @@ export async function GET(request: Request) {
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
        WHERE es.partner_id = ? AND es.is_current = 1${whereExtra}
-       ORDER BY e.start_date DESC, e.name`,
+       ORDER BY e.start_date DESC, e.name
+       LIMIT ${limit} OFFSET ${offset}`,
       params
     )
 
-    return NextResponse.json({ data: exams })
+    return NextResponse.json({ data: { exams, total, page, limit } })
   } catch (error) {
     console.error("Exams GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

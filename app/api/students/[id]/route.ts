@@ -158,6 +158,12 @@ export async function DELETE(
       [id]
     )
 
+    // Also deactivate all enrollments so the student won't appear in attendance, marks, etc.
+    await executeQuery(
+      "UPDATE erp_student_enrollments SET status = 'withdrawn', updated_at = NOW() WHERE student_id = ?",
+      [id]
+    )
+
     return NextResponse.json({ message: "Student deleted successfully" })
   } catch (error) {
     console.error("Student DELETE error:", error)

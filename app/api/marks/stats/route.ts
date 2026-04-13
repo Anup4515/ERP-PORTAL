@@ -32,7 +32,9 @@ export async function GET(request: Request) {
               MIN(CASE WHEN m.is_absent = 0 THEN m.obtained_marks END) as lowest
        FROM erp_marks m
        JOIN erp_subjects sub ON sub.id = m.subject_id
-       WHERE m.exam_id = ?
+       JOIN erp_student_enrollments se2 ON se2.id = m.student_enrollment_id
+       JOIN students s2 ON s2.id = se2.student_id
+       WHERE m.exam_id = ? AND se2.status = 'active' AND s2.deleted_at IS NULL
        GROUP BY m.subject_id, sub.name
        ORDER BY sub.sort_order, sub.name`,
       [examId]
@@ -45,7 +47,10 @@ export async function GET(request: Request) {
 
     const rankingCount = await executeQuery<{ total: number }[]>(
       `SELECT COUNT(DISTINCT m.student_enrollment_id) as total
-       FROM erp_marks m WHERE m.exam_id = ?`,
+       FROM erp_marks m
+       JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
+       JOIN students s ON s.id = se.student_id
+       WHERE m.exam_id = ? AND se.status = 'active' AND s.deleted_at IS NULL`,
       [examId]
     )
     const total = rankingCount[0].total
@@ -58,7 +63,7 @@ export async function GET(request: Request) {
        FROM erp_marks m
        JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
        JOIN students s ON s.id = se.student_id
-       WHERE m.exam_id = ?
+       WHERE m.exam_id = ? AND se.status = 'active' AND s.deleted_at IS NULL
        GROUP BY m.student_enrollment_id, se.roll_number, s.first_name, s.last_name
        ORDER BY overall_percentage DESC
        LIMIT ${limit} OFFSET ${offset}`,

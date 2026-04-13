@@ -25,6 +25,11 @@ interface ClassItem {
   sections: Section[];
 }
 
+interface ClassSectionOption {
+  class_section_id: number;
+  label: string;
+}
+
 interface Subject {
   id: number;
   class_section_id: number;
@@ -59,6 +64,9 @@ export default function SubjectsTab() {
   const [form, setForm] = useState<SubjectForm>(initialForm);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof SubjectForm, string>>>({});
   const [saving, setSaving] = useState(false);
+
+  // Multi-class selection for adding subjects
+  const [selectedCsIds, setSelectedCsIds] = useState<Set<number>>(new Set());
 
   const [deleteTarget, setDeleteTarget] = useState<Subject | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -113,7 +121,7 @@ export default function SubjectsTab() {
     fetchSubjects(selectedClassSectionId);
   }, [selectedClassSectionId, fetchSubjects]);
 
-  // Build class-section options for the Select dropdown
+  // Build class-section options
   const classSectionOptions = [
     { value: "", label: "-- Select Class & Section --" },
     ...classes.flatMap((cls) =>
@@ -126,11 +134,44 @@ export default function SubjectsTab() {
     ),
   ];
 
+  // Flat list of all class-sections for multi-select checkboxes
+  const allClassSections: ClassSectionOption[] = classes.flatMap((cls) =>
+    cls.sections
+      .filter((sec) => sec.class_section_id)
+      .map((sec) => ({
+        class_section_id: sec.class_section_id,
+        label: `${cls.name} - ${sec.name}`,
+      }))
+  );
+
+  function toggleCsId(csId: number) {
+    setSelectedCsIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(csId)) next.delete(csId);
+      else next.add(csId);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selectedCsIds.size === allClassSections.length) {
+      setSelectedCsIds(new Set());
+    } else {
+      setSelectedCsIds(new Set(allClassSections.map((cs) => cs.class_section_id)));
+    }
+  }
+
   // Modal helpers
   function openAddModal() {
     setEditingSubject(null);
     setForm(initialForm);
     setFormErrors({});
+    // Pre-select the currently viewed class-section
+    if (selectedClassSectionId) {
+      setSelectedCsIds(new Set([parseInt(selectedClassSectionId, 10)]));
+    } else {
+      setSelectedCsIds(new Set());
+    }
     setModalOpen(true);
   }
 
@@ -150,6 +191,7 @@ export default function SubjectsTab() {
     setEditingSubject(null);
     setForm(initialForm);
     setFormErrors({});
+    setSelectedCsIds(new Set());
   }
 
   function handleFormChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -172,6 +214,12 @@ export default function SubjectsTab() {
   async function handleSave() {
     if (!validate()) return;
 
+    // For new subjects, must have at least one class-section selected
+    if (!editingSubject && selectedCsIds.size === 0) {
+      setBanner({ type: "error", message: "Please select at least one class & section." });
+      return;
+    }
+
     try {
       setSaving(true);
       setBanner(null);
@@ -191,7 +239,7 @@ export default function SubjectsTab() {
           body: JSON.stringify(payload),
         });
       } else {
-        payload.class_section_id = parseInt(selectedClassSectionId, 10);
+        payload.class_section_ids = Array.from(selectedCsIds);
         res = await fetch("/api/subjects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -204,11 +252,12 @@ export default function SubjectsTab() {
         throw new Error(json?.error || "Failed to save subject");
       }
 
+      const json = await res.json();
       setBanner({
         type: "success",
         message: editingSubject
           ? "Subject updated successfully."
-          : "Subject created successfully.",
+          : json.message || "Subject created successfully.",
       });
       closeModal();
       fetchSubjects(selectedClassSectionId);
@@ -381,12 +430,52 @@ export default function SubjectsTab() {
             onChange={handleFormChange}
             placeholder="0"
           />
+
+          {/* Multi-class selection (only for new subjects) */}
+          {!editingSubject && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Apply to Classes & Sections *
+                </label>
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer"
+                >
+                  {selectedCsIds.size === allClassSections.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+              <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto p-2 space-y-1">
+                {allClassSections.map((cs) => (
+                  <label
+                    key={cs.class_section_id}
+                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCsIds.has(cs.class_section_id)}
+                      onChange={() => toggleCsId(cs.class_section_id)}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700">{cs.label}</span>
+                  </label>
+                ))}
+              </div>
+              {selectedCsIds.size > 0 && (
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {selectedCsIds.size} class section{selectedCsIds.size !== 1 ? "s" : ""} selected
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={closeModal} disabled={saving}>
               Cancel
             </Button>
             <Button variant="primary" onClick={handleSave} loading={saving}>
-              {editingSubject ? "Update" : "Create"}
+              {editingSubject ? "Update" : `Create${!editingSubject && selectedCsIds.size > 1 ? ` (${selectedCsIds.size} classes)` : ""}`}
             </Button>
           </div>
         </div>

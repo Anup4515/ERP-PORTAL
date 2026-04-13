@@ -91,7 +91,7 @@ export default function AdminHolisticPage() {
 
   // Filter parameters: show only those matching the selected class's stage (+ ungrouped)
   const parameterOptions = (() => {
-    const opts: { value: string; label: string }[] = [{ value: "", label: "Select Parameter" }];
+    const opts: { value: string; label: string }[] = [{ value: "", label: classSectionId ? "Select Parameter" : "Select class first" }];
     parameters.forEach((p) => {
       if (p.sub_parameters.length === 0) return;
       // If a class is selected, only show params for that stage (or params without a stage)
@@ -184,6 +184,7 @@ export default function AdminHolisticPage() {
             value={parameterId}
             onChange={(e) => setParameterId(e.target.value)}
             options={parameterOptions}
+            disabled={!classSectionId}
           />
         </div>
         <div className="flex items-center gap-2">

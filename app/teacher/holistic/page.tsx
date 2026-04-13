@@ -96,7 +96,7 @@ export default function TeacherHolisticPage() {
   const selectedStage = classSectionId ? gradeToStage(csGradeMap[classSectionId]) : null;
 
   const parameterOptions = (() => {
-    const opts: { value: string; label: string }[] = [{ value: "", label: "Select Parameter" }];
+    const opts: { value: string; label: string }[] = [{ value: "", label: classSectionId ? "Select Parameter" : "Select class first" }];
     parameters.forEach((p) => {
       if (p.sub_parameters.length === 0) return;
       if (selectedStage && p.stage && p.stage !== selectedStage) return;
@@ -292,6 +292,7 @@ export default function TeacherHolisticPage() {
             value={parameterId}
             onChange={(e) => setParameterId(e.target.value)}
             options={parameterOptions}
+            disabled={!classSectionId}
           />
         </div>
         <div className="flex items-center gap-2">

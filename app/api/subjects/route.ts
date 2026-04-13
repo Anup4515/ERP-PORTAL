@@ -50,34 +50,60 @@ export async function POST(request: Request) {
     if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
-    const { class_section_id, name, code, teacher_id, sort_order } = body
+    const { class_section_id, class_section_ids, name, code, teacher_id, sort_order } = body
 
-    if (!class_section_id || !name) {
+    // Support both single and multiple class_section_ids
+    const csIds: number[] = class_section_ids
+      ? (class_section_ids as number[])
+      : class_section_id
+      ? [Number(class_section_id)]
+      : []
+
+    if (csIds.length === 0 || !name) {
       return NextResponse.json(
-        { error: "class_section_id and name are required" },
+        { error: "class_section_id (or class_section_ids) and name are required" },
         { status: 400 }
       )
     }
 
-    // Verify class_section belongs to this partner
+    // Verify all class_sections belong to this partner
+    const placeholders = csIds.map(() => "?").join(",")
     const ownershipCheck = await executeQuery<{ id: number }[]>(
       `SELECT ecs.id FROM erp_class_sections ecs
        JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE ecs.id = ? AND es.partner_id = ?`,
-      [class_section_id, ctx.partnerUserId]
+       WHERE ecs.id IN (${placeholders}) AND es.partner_id = ?`,
+      [...csIds, ctx.partnerUserId]
     )
-    if (ownershipCheck.length === 0) {
-      return NextResponse.json({ error: "Class section not found" }, { status: 404 })
+    if (ownershipCheck.length !== csIds.length) {
+      return NextResponse.json({ error: "One or more class sections not found" }, { status: 404 })
     }
 
-    const result = await executeQuery<{ insertId: number }>(
-      `INSERT INTO erp_subjects (class_section_id, name, code, teacher_id, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-      [class_section_id, name, code || null, teacher_id || null, sort_order ?? 0]
-    )
+    const insertedIds: number[] = []
+    const skipped: number[] = []
+
+    for (const csId of csIds) {
+      try {
+        const result = await executeQuery<{ insertId: number }>(
+          `INSERT INTO erp_subjects (class_section_id, name, code, teacher_id, sort_order, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+          [csId, name, code || null, teacher_id || null, sort_order ?? 0]
+        )
+        insertedIds.push((result as any).insertId)
+      } catch (err: any) {
+        if (err?.code === "ER_DUP_ENTRY") {
+          skipped.push(csId)
+        } else {
+          throw err
+        }
+      }
+    }
+
+    const message = skipped.length > 0
+      ? `Subject created in ${insertedIds.length} class section(s). Skipped ${skipped.length} (already exists).`
+      : `Subject created in ${insertedIds.length} class section(s).`
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Subject created successfully" },
+      { data: { ids: insertedIds, skipped }, message },
       { status: 201 }
     )
   } catch (error: any) {

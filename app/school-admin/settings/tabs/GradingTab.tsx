@@ -34,31 +34,22 @@ interface GradingRange {
 }
 
 const typeOptions = [
-  { value: "letter", label: "Letter Grade" },
-  { value: "gpa", label: "GPA" },
   { value: "percentage", label: "Percentage" },
   { value: "cgpa", label: "CGPA" },
 ];
-
-const typeBadgeVariant: Record<string, "info" | "success" | "warning" | "default"> = {
-  letter: "info",
-  gpa: "success",
-  percentage: "warning",
-  cgpa: "default",
-};
 
 const rangeColumns = [
   { key: "grade_label", label: "Grade Label" },
   { key: "min_percentage", label: "Min %" },
   { key: "max_percentage", label: "Max %" },
-  { key: "gpa_value", label: "GPA Value" },
+  { key: "gpa_value", label: "CGPA Value" },
   { key: "sort_order", label: "Sort Order" },
 ];
 
 export default function GradingTab() {
-  const [schemes, setSchemes] = useState<Scheme[]>([]);
-  const [loadingSchemes, setLoadingSchemes] = useState(true);
-  const [selectedSchemeId, setSelectedSchemeId] = useState<string | null>(null);
+  const [scheme, setScheme] = useState<Scheme | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [noSession, setNoSession] = useState(false);
 
   const [ranges, setRanges] = useState<GradingRange[]>([]);
   const [loadingRanges, setLoadingRanges] = useState(false);
@@ -67,8 +58,7 @@ export default function GradingTab() {
   const [savingScheme, setSavingScheme] = useState(false);
   const [schemeForm, setSchemeForm] = useState({
     name: "",
-    type: "letter",
-    is_default: false,
+    type: "percentage",
   });
   const [schemeErrors, setSchemeErrors] = useState<Record<string, string>>({});
 
@@ -95,17 +85,25 @@ export default function GradingTab() {
     }
   }, [banner]);
 
-  const fetchSchemes = useCallback(async () => {
+  const fetchScheme = useCallback(async () => {
     try {
-      setLoadingSchemes(true);
+      setLoading(true);
       const res = await fetch("/api/grading/schemes");
-      if (!res.ok) throw new Error("Failed to fetch grading schemes");
+      if (!res.ok) throw new Error("Failed to fetch grading scheme");
       const json = await res.json();
-      setSchemes(json.data);
+
+      if (json.message === "No active session found") {
+        setNoSession(true);
+        setScheme(null);
+        return;
+      }
+
+      setNoSession(false);
+      setScheme(json.data || null);
     } catch {
-      setBanner({ type: "error", message: "Failed to load grading schemes." });
+      setBanner({ type: "error", message: "Failed to load grading scheme." });
     } finally {
-      setLoadingSchemes(false);
+      setLoading(false);
     }
   }, []);
 
@@ -124,25 +122,21 @@ export default function GradingTab() {
   }, []);
 
   useEffect(() => {
-    fetchSchemes();
-  }, [fetchSchemes]);
+    fetchScheme();
+  }, [fetchScheme]);
 
   useEffect(() => {
-    if (selectedSchemeId) {
-      fetchRanges(selectedSchemeId);
+    if (scheme && scheme.type === "cgpa") {
+      fetchRanges(scheme.id);
     } else {
       setRanges([]);
     }
-  }, [selectedSchemeId, fetchRanges]);
-
-  function handleSelectScheme(schemeId: string) {
-    setSelectedSchemeId((prev) => (prev === schemeId ? null : schemeId));
-  }
+  }, [scheme, fetchRanges]);
 
   // --- Scheme Modal ---
 
   function openSchemeModal() {
-    setSchemeForm({ name: "", type: "letter", is_default: false });
+    setSchemeForm({ name: "", type: "percentage" });
     setSchemeErrors({});
     setShowSchemeModal(true);
   }
@@ -168,16 +162,18 @@ export default function GradingTab() {
         body: JSON.stringify({
           name: schemeForm.name.trim(),
           type: schemeForm.type,
-          is_default: schemeForm.is_default,
         }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
         throw new Error(json?.error || "Failed to create scheme");
       }
-      setBanner({ type: "success", message: "Grading scheme created successfully." });
+      setBanner({
+        type: "success",
+        message: "Grading scheme created successfully.",
+      });
       setShowSchemeModal(false);
-      await fetchSchemes();
+      await fetchScheme();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to create scheme.";
@@ -206,10 +202,16 @@ export default function GradingTab() {
     if (!rangeForm.grade_label.trim()) {
       errors.grade_label = "Grade label is required";
     }
-    if (rangeForm.min_percentage === "" || isNaN(Number(rangeForm.min_percentage))) {
+    if (
+      rangeForm.min_percentage === "" ||
+      isNaN(Number(rangeForm.min_percentage))
+    ) {
       errors.min_percentage = "Valid min percentage is required";
     }
-    if (rangeForm.max_percentage === "" || isNaN(Number(rangeForm.max_percentage))) {
+    if (
+      rangeForm.max_percentage === "" ||
+      isNaN(Number(rangeForm.max_percentage))
+    ) {
       errors.max_percentage = "Valid max percentage is required";
     }
     if (
@@ -219,8 +221,8 @@ export default function GradingTab() {
     ) {
       errors.min_percentage = "Min % cannot be greater than Max %";
     }
-    if (rangeForm.gpa_value !== "" && isNaN(Number(rangeForm.gpa_value))) {
-      errors.gpa_value = "Must be a valid number";
+    if (rangeForm.gpa_value === "" || isNaN(Number(rangeForm.gpa_value))) {
+      errors.gpa_value = "Valid CGPA value is required";
     }
     if (rangeForm.sort_order !== "" && isNaN(Number(rangeForm.sort_order))) {
       errors.sort_order = "Must be a valid number";
@@ -231,19 +233,17 @@ export default function GradingTab() {
 
   async function handleCreateRange(e: React.FormEvent) {
     e.preventDefault();
-    if (!validateRangeForm() || !selectedSchemeId) return;
+    if (!validateRangeForm() || !scheme) return;
 
     try {
       setSavingRange(true);
       const body: Record<string, unknown> = {
-        grading_scheme_id: selectedSchemeId,
+        grading_scheme_id: scheme.id,
         grade_label: rangeForm.grade_label.trim(),
         min_percentage: Number(rangeForm.min_percentage),
         max_percentage: Number(rangeForm.max_percentage),
+        gpa_value: Number(rangeForm.gpa_value),
       };
-      if (rangeForm.gpa_value !== "") {
-        body.gpa_value = Number(rangeForm.gpa_value);
-      }
       if (rangeForm.sort_order !== "") {
         body.sort_order = Number(rangeForm.sort_order);
       }
@@ -257,9 +257,12 @@ export default function GradingTab() {
         const json = await res.json().catch(() => null);
         throw new Error(json?.error || "Failed to create range");
       }
-      setBanner({ type: "success", message: "Grading range added successfully." });
+      setBanner({
+        type: "success",
+        message: "Grading range added successfully.",
+      });
       setShowRangeModal(false);
-      await fetchRanges(selectedSchemeId);
+      await fetchRanges(scheme.id);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to create range.";
@@ -271,7 +274,7 @@ export default function GradingTab() {
 
   // --- Render ---
 
-  if (loadingSchemes) {
+  if (loading) {
     return (
       <Card>
         <LoadingSkeleton lines={8} />
@@ -279,7 +282,17 @@ export default function GradingTab() {
     );
   }
 
-  const selectedScheme = schemes.find((s) => s.id === selectedSchemeId);
+  if (noSession) {
+    return (
+      <Card>
+        <EmptyState
+          title="No Active Session"
+          description="Please create and set a current session before configuring the grading scheme."
+        />
+      </Card>
+    );
+  }
+
   const typeLabel = (type: string) =>
     typeOptions.find((o) => o.value === type)?.label || type;
 
@@ -297,72 +310,78 @@ export default function GradingTab() {
         </div>
       )}
 
-      {/* Schemes Section */}
+      {/* Scheme Section */}
       <Card>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Grading Schemes
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Manage grading schemes and their grade ranges
-            </p>
-          </div>
-          <Button variant="primary" onClick={openSchemeModal}>
-            Add Scheme
-          </Button>
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Grading Scheme
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Set the grading system for the current session. Once set, it cannot
+            be changed until the next session.
+          </p>
         </div>
 
-        {schemes.length === 0 ? (
+        {!scheme ? (
           <EmptyState
-            title="No Grading Schemes"
-            description="Create your first grading scheme to define how students are graded."
-            action={{ label: "Add Scheme", onClick: openSchemeModal }}
+            title="No Grading Scheme Set"
+            description="Choose a grading system for this session. This is a one-time setup and cannot be changed mid-session."
+            action={{ label: "Set Grading Scheme", onClick: openSchemeModal }}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {schemes.map((scheme) => (
-              <div
-                key={scheme.id}
-                onClick={() => handleSelectScheme(scheme.id)}
-                className={`relative cursor-pointer rounded-lg border-2 p-4 transition-all duration-200 hover:shadow-md ${
-                  selectedSchemeId === scheme.id
-                    ? "border-primary-500 bg-primary-50/50 shadow-sm"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium text-gray-900 text-sm">
-                    {scheme.name}
-                  </h3>
-                  {scheme.is_default && (
-                    <Badge variant="success" size="sm">
-                      Default
-                    </Badge>
-                  )}
-                </div>
+          <div className="rounded-lg border-2 border-primary-500 bg-primary-50/50 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">
+                  {scheme.name}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {scheme.type === "percentage"
+                    ? "Students are graded using percentage scores directly."
+                    : "Students are graded using CGPA with defined grade ranges."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
                 <Badge
-                  variant={typeBadgeVariant[scheme.type] || "default"}
+                  variant={scheme.type === "percentage" ? "warning" : "default"}
                   size="sm"
                 >
                   {typeLabel(scheme.type)}
                 </Badge>
+                <Badge variant="success" size="sm">
+                  Active
+                </Badge>
               </div>
-            ))}
+            </div>
+            <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3.5 w-3.5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Locked for this session
+            </div>
           </div>
         )}
       </Card>
 
-      {/* Ranges Section */}
-      {selectedScheme && (
+      {/* CGPA Ranges Section - only shown for CGPA type */}
+      {scheme && scheme.type === "cgpa" && (
         <Card>
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                Grade Ranges &mdash; {selectedScheme.name}
+                CGPA Grade Ranges
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                Define the grading ranges for this scheme
+                Define percentage to CGPA mapping for this scheme
               </p>
             </div>
             <Button variant="primary" onClick={openRangeModal}>
@@ -374,18 +393,25 @@ export default function GradingTab() {
             columns={rangeColumns}
             data={ranges as unknown as Record<string, unknown>[]}
             loading={loadingRanges}
-            emptyMessage="No grading ranges defined yet. Add a range to get started."
+            emptyMessage="No CGPA ranges defined yet. Add ranges to map percentages to CGPA values."
           />
         </Card>
       )}
 
-      {/* Add Scheme Modal */}
+      {/* Set Scheme Modal */}
       <Modal
         isOpen={showSchemeModal}
         onClose={() => setShowSchemeModal(false)}
-        title="Add Grading Scheme"
+        title="Set Grading Scheme"
       >
         <form onSubmit={handleCreateScheme} className="space-y-4">
+          <div className="px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200">
+            <p className="text-xs text-amber-700">
+              This is a one-time setup for the current session. Once set, the
+              grading scheme cannot be changed until the next session.
+            </p>
+          </div>
+
           <Input
             label="Scheme Name *"
             id="scheme_name"
@@ -393,12 +419,12 @@ export default function GradingTab() {
             onChange={(e) =>
               setSchemeForm((prev) => ({ ...prev, name: e.target.value }))
             }
-            placeholder="e.g. Primary Grading"
+            placeholder="e.g. Annual Grading 2025-26"
             error={schemeErrors.name}
           />
 
           <Select
-            label="Type"
+            label="Grading Type *"
             id="scheme_type"
             options={typeOptions}
             value={schemeForm.type}
@@ -407,20 +433,13 @@ export default function GradingTab() {
             }
           />
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={schemeForm.is_default}
-              onChange={(e) =>
-                setSchemeForm((prev) => ({
-                  ...prev,
-                  is_default: e.target.checked,
-                }))
-              }
-              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <span className="text-sm text-gray-700">Set as default scheme</span>
-          </label>
+          <div className="px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
+            <p className="text-xs text-gray-600">
+              {schemeForm.type === "percentage"
+                ? "Percentage: Students will be graded using raw percentage scores. No additional configuration needed."
+                : "CGPA: You will need to define grade ranges (e.g., 90-100% = 10.0 CGPA) after creating the scheme."}
+            </p>
+          </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <Button
@@ -430,7 +449,7 @@ export default function GradingTab() {
               Cancel
             </Button>
             <Button type="submit" variant="primary" loading={savingScheme}>
-              Create Scheme
+              Set Scheme
             </Button>
           </div>
         </form>
@@ -440,7 +459,7 @@ export default function GradingTab() {
       <Modal
         isOpen={showRangeModal}
         onClose={() => setShowRangeModal(false)}
-        title="Add Grading Range"
+        title="Add CGPA Range"
       >
         <form onSubmit={handleCreateRange} className="space-y-4">
           <Input
@@ -453,7 +472,7 @@ export default function GradingTab() {
                 grade_label: e.target.value,
               }))
             }
-            placeholder="e.g. A+, A, B+"
+            placeholder="e.g. O, A+, A, B+"
             error={rangeErrors.grade_label}
           />
 
@@ -488,37 +507,36 @@ export default function GradingTab() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="GPA Value"
-              id="gpa_value"
-              type="number"
-              step="0.01"
-              value={rangeForm.gpa_value}
-              onChange={(e) =>
-                setRangeForm((prev) => ({
-                  ...prev,
-                  gpa_value: e.target.value,
-                }))
-              }
-              placeholder="e.g. 4.0"
-              error={rangeErrors.gpa_value}
-            />
-            <Input
-              label="Sort Order"
-              id="sort_order"
-              type="number"
-              value={rangeForm.sort_order}
-              onChange={(e) =>
-                setRangeForm((prev) => ({
-                  ...prev,
-                  sort_order: e.target.value,
-                }))
-              }
-              placeholder="e.g. 1"
-              error={rangeErrors.sort_order}
-            />
-          </div>
+          <Input
+            label="CGPA Value *"
+            id="gpa_value"
+            type="number"
+            step="0.01"
+            value={rangeForm.gpa_value}
+            onChange={(e) =>
+              setRangeForm((prev) => ({
+                ...prev,
+                gpa_value: e.target.value,
+              }))
+            }
+            placeholder="e.g. 10.0"
+            error={rangeErrors.gpa_value}
+          />
+
+          <Input
+            label="Sort Order"
+            id="sort_order"
+            type="number"
+            value={rangeForm.sort_order}
+            onChange={(e) =>
+              setRangeForm((prev) => ({
+                ...prev,
+                sort_order: e.target.value,
+              }))
+            }
+            placeholder="e.g. 1"
+            error={rangeErrors.sort_order}
+          />
 
           <div className="flex justify-end gap-3 pt-2">
             <Button

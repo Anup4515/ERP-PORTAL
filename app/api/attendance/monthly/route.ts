@@ -41,7 +41,7 @@ export async function GET(request: Request) {
               s.first_name, s.last_name
        FROM erp_student_enrollments se
        JOIN students s ON s.id = se.student_id
-       WHERE se.class_section_id = ? AND se.status = 'active'
+       WHERE se.class_section_id = ? AND se.status = 'active' AND s.deleted_at IS NULL
        ORDER BY se.roll_number, s.first_name`,
       [classSectionId]
     )

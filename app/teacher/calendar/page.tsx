@@ -114,14 +114,14 @@ export default function TeacherCalendarPage() {
               </div>
             ))}
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`e-${i}`} className="min-h-[44px] sm:min-h-[56px] lg:min-h-[72px] xl:min-h-[90px] border-b border-r border-gray-100 bg-gray-50/50 p-1 sm:p-1.5 lg:p-2" />
+              <div key={`e-${i}`} className="min-h-[44px] sm:min-h-[56px] lg:min-h-[64px] border-b border-r border-gray-100 bg-gray-50/50 p-1 sm:p-1.5 lg:p-2" />
             ))}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
               const dayData = dayMap.get(d);
               const isHoliday = dayData?.is_holiday === 1;
               const isSunday = new Date(year, month, d).getDay() === 0;
               return (
-                <div key={d} className={`min-h-[44px] sm:min-h-[56px] lg:min-h-[72px] xl:min-h-[90px] border-b border-r border-gray-100 p-1 sm:p-1.5 lg:p-2 ${
+                <div key={d} className={`min-h-[44px] sm:min-h-[56px] lg:min-h-[64px] border-b border-r border-gray-100 p-1 sm:p-1.5 lg:p-2 ${
                   isHoliday ? "bg-red-50" : isSunday ? "bg-orange-50/60" : "bg-white"
                 }`}>
                   <span className={`text-xs sm:text-sm font-medium ${

@@ -52,11 +52,11 @@ const schoolAdminNav: NavItem[] = [
   { label: "Timetable", href: "/school-admin/timetable", icon: ClockIcon },
   { label: "Staff", href: "/school-admin/staff", icon: UsersIcon },
   { label: "Holistic", href: "/school-admin/holistic", icon: SparklesIcon },
-  // {
-  //   label: "Reports",
-  //   href: "/school-admin/reports",
-  //   icon: DocumentChartBarIcon,
-  // },
+  {
+    label: "Reports",
+    href: "/school-admin/reports",
+    icon: DocumentChartBarIcon,
+  },
   { label: "Settings", href: "/school-admin/settings", icon: Cog6ToothIcon },
   { label: "Instructions", href: "/school-admin/instructions", icon: InformationCircleIcon },
 ];
@@ -75,11 +75,12 @@ const teacherNav: NavItem[] = [
     icon: ClipboardDocumentCheckIcon,
   },
   { label: "Calendar", href: "/teacher/calendar", icon: CalendarDaysIcon },
+  { label: "Exams", href: "/teacher/exams", icon: DocumentTextIcon },
   { label: "Marks", href: "/teacher/marks", icon: ChartBarIcon },
   { label: "Timetable", href: "/teacher/timetable", icon: ClockIcon },
   { label: "Instructions", href: "/teacher/instructions", icon: InformationCircleIcon },
   { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
-  // { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },
+  { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },
 ];
 
 interface DashboardLayoutProps {
@@ -172,34 +173,28 @@ export default function DashboardLayout({
             collapsed ? "px-2" : "px-4"
           )}
         >
-          {!collapsed && (
-            <div className="flex items-center gap-3 px-2 mb-3">
-              <div className="w-9 h-9 rounded-full bg-accent-400 flex items-center justify-center text-primary-900 font-bold text-sm shrink-0">
-                {initials}
-              </div>
-              <div className="min-w-0">
+          <div className={cn(
+            "flex items-center",
+            collapsed ? "justify-center" : "justify-between px-2"
+          )}>
+            {!collapsed && (
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-accent-400 flex items-center justify-center text-primary-900 font-bold text-sm shrink-0">
+                  {initials}
+                </div>
                 <p className="text-sm font-medium text-white truncate">
                   {userName}
                 </p>
-                <span className="inline-block text-xs bg-white/10 text-primary-200 px-2 py-0.5 rounded-full">
-                  {roleLabel}
-                </span>
               </div>
-            </div>
-          )}
-          <button
-            onClick={handleSignOut}
-            title={collapsed ? "Sign out" : undefined}
-            className={cn(
-              "flex items-center w-full text-sm text-primary-200 hover:text-white hover:bg-white/5 rounded-lg transition-colors duration-200 cursor-pointer",
-              collapsed
-                ? "justify-center px-2 py-2"
-                : "gap-2 px-3 py-2"
             )}
-          >
-            <ArrowRightOnRectangleIcon className="w-5 h-5 shrink-0" />
-            {!collapsed && <span>Sign out</span>}
-          </button>
+            <button
+              onClick={handleSignOut}
+              title="Sign out"
+              className="text-primary-200 hover:text-white hover:bg-white/5 rounded-lg p-2 transition-colors duration-200 cursor-pointer shrink-0"
+            >
+              <ArrowRightOnRectangleIcon className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -249,8 +244,8 @@ export default function DashboardLayout({
         )}
       >
         {/* Top bar */}
-        <header className="sticky top-0 z-20 px-4 sm:px-6 lg:px-8 pt-3">
-          <div className="flex items-center justify-between h-14 px-4 sm:px-6 bg-white/80 backdrop-blur-sm rounded-md shadow-sm border border-gray-200/60">
+        <header className="sticky top-0 z-20 w-full">
+          <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8 bg-white shadow-sm border-b border-gray-200/60">
             {/* Left: hamburger + page title */}
             <div className="flex items-center gap-3">
               <button
@@ -277,18 +272,6 @@ export default function DashboardLayout({
 
             {/* Right: settings + notification + avatar */}
             <div className="flex items-center gap-3">
-              <Link
-                href={role === "school_admin" ? "/school-admin/settings" : "/teacher/dashboard"}
-                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-              >
-                <Cog6ToothIcon className="w-5.5 h-5.5" />
-              </Link>
-              <button className="relative text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
-                <BellIcon className="w-5.5 h-5.5" />
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">
-                  2
-                </span>
-              </button>
               <div className="w-9 h-9 rounded-full bg-primary-900 flex items-center justify-center text-white font-bold text-sm">
                 {initials}
               </div>

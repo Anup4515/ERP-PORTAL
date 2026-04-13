@@ -7,12 +7,25 @@ export async function GET() {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
 
-    const schemes = await executeQuery(
-      "SELECT * FROM erp_grading_schemes WHERE partner_id = ? ORDER BY is_default DESC, name",
+    // Get the current session
+    const sessions = await executeQuery<{ id: number }[]>(
+      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
       [ctx.partnerUserId]
     )
 
-    return NextResponse.json({ data: schemes })
+    if (sessions.length === 0) {
+      return NextResponse.json({ data: null, message: "No active session found" })
+    }
+
+    const sessionId = sessions[0].id
+
+    // Get scheme for the current session
+    const schemes = await executeQuery<Record<string, unknown>[]>(
+      "SELECT * FROM erp_grading_schemes WHERE partner_id = ? AND session_id = ? LIMIT 1",
+      [ctx.partnerUserId, sessionId]
+    )
+
+    return NextResponse.json({ data: schemes.length > 0 ? schemes[0] : null, session_id: sessionId })
   } catch (error) {
     console.error("Grading schemes GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -25,7 +38,7 @@ export async function POST(request: Request) {
     if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
-    const { name, type, session_id, is_default } = body
+    const { name, type } = body
 
     if (!name || !type) {
       return NextResponse.json(
@@ -34,26 +47,52 @@ export async function POST(request: Request) {
       )
     }
 
-    const validTypes = ["letter", "gpa", "percentage", "cgpa"]
+    const validTypes = ["percentage", "cgpa"]
     if (!validTypes.includes(type)) {
       return NextResponse.json(
-        { error: "type must be one of: letter, gpa, percentage, cgpa" },
+        { error: "type must be one of: percentage, cgpa" },
         { status: 400 }
       )
     }
 
-    // If setting as default, unset other defaults for this partner first
-    if (is_default) {
-      await executeQuery(
-        "UPDATE erp_grading_schemes SET is_default = 0 WHERE partner_id = ?",
-        [ctx.partnerUserId]
+    // Get the current session
+    const sessions = await executeQuery<{ id: number }[]>(
+      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
+      [ctx.partnerUserId]
+    )
+
+    if (sessions.length === 0) {
+      return NextResponse.json(
+        { error: "No active session found. Please create and set a current session first." },
+        { status: 400 }
       )
     }
 
+    const sessionId = sessions[0].id
+
+    // Check if a scheme already exists for this session
+    const existing = await executeQuery<{ id: number }[]>(
+      "SELECT id FROM erp_grading_schemes WHERE partner_id = ? AND session_id = ?",
+      [ctx.partnerUserId, sessionId]
+    )
+
+    if (existing.length > 0) {
+      return NextResponse.json(
+        { error: "A grading scheme already exists for the current session. You cannot change it mid-session." },
+        { status: 409 }
+      )
+    }
+
+    // Unset any previous default and set this as default
+    await executeQuery(
+      "UPDATE erp_grading_schemes SET is_default = 0 WHERE partner_id = ?",
+      [ctx.partnerUserId]
+    )
+
     const result = await executeQuery<{ insertId: number }>(
       `INSERT INTO erp_grading_schemes (partner_id, session_id, name, type, is_default, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-      [ctx.partnerUserId, session_id || null, name, type, is_default ? 1 : 0]
+       VALUES (?, ?, ?, ?, 1, NOW(), NOW())`,
+      [ctx.partnerUserId, sessionId, name, type]
     )
 
     return NextResponse.json(

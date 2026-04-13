@@ -1,0 +1,374 @@
+================================================================================
+    PARTNERS PORTAL — COMPLETE AUDIT & IMPROVEMENT PLAN
+================================================================================
+    Generated: 2026-04-08
+    Scope: Security, Architecture, Scalability, Multi-Tenancy, DevOps
+    Audited: 51 API routes, 50+ page components, middleware, auth, database
+================================================================================
+
+
+SECTION 1: CURRENT ARCHITECTURE SUMMARY
+================================================================================
+
+Tech Stack
+----------
+  Layer        | Technology              | Version
+  -------------|-------------------------|----------------
+  Framework    | Next.js                 | 16.2.1
+  Runtime      | React                   | 19.2.4
+  Auth         | NextAuth (v5 beta)      | 5.0.0-beta.30
+  Database     | MySQL2 (pool)           | 3.20.0
+  Validation   | Zod                     | 4.3.6
+  Styling      | Tailwind CSS v4         | 4.2.2
+  PDF          | @react-pdf/renderer     | 4.3.2
+  Excel        | ExcelJS                 | 4.4.0
+  Password     | bcryptjs                | 3.0.3
+  Language     | TypeScript (strict)     | 6.0.2
+
+Key Files
+---------
+  File                      | Purpose
+  --------------------------|----------------------------------------------------
+  app/lib/auth.ts           | NextAuth config, credentials provider, JWT callbacks
+  app/lib/auth-utils.ts     | getAuthContext() — RBAC gatekeeper for all API routes
+  app/lib/db.ts             | MySQL2 connection pool (50), executeQuery, executeTransaction
+  app/lib/rate-limit.ts     | In-memory token bucket rate limiter
+  app/lib/validations.ts    | Zod schemas for server-side input validation
+  app/lib/api-client.ts     | Centralized fetch wrapper (EXISTS BUT UNUSED — dead code)
+  app/lib/utils.ts          | cn(), formatDate(), formatCurrency(), getInitials()
+  middleware.ts             | Route protection, role-based redirects, login rate limiting
+  next.config.ts            | Standalone output, hardcoded ngrok dev origin
+
+Auth Flow
+---------
+  Login
+    -> credentials provider
+    -> users table (role_id 4=admin, 5=teacher)
+    -> bcrypt verify
+    -> resolveSchoolId()
+    -> JWT {user_id, school_id, role}
+    -> middleware checks token on every request
+    -> API routes call getAuthContext(["allowed_roles"])
+    -> queries scoped by partnerUserId (WHERE partner_id = ?)
+
+Multi-Tenancy (Current)
+-----------------------
+  - All 49 protected API routes scope data by partner_id / partnerUserId
+  - Auth context resolves tenant at request time
+  - No cross-tenant data leakage found
+
+Route Inventory
+---------------
+  - 51 API routes (49 auth-protected, 2 public: health + auth handler)
+  - 14 dynamic routes (11 API + 3 page routes with [id] params)
+  - 12 school-admin pages, 9 teacher pages, auth pages, setup page
+  - All page components are client-side ("use client")
+
+
+SECTION 2: SECURITY AUDIT FINDINGS
+================================================================================
+
+2.1 What's Working Well
+-----------------------
+  [OK] All queries use parameterized ? placeholders (except LIMIT/OFFSET)
+  [OK] Role-based access control on all 49 protected routes
+  [OK] Ownership verification before CRUD operations (complex JOINs check tenant)
+  [OK] bcrypt password hashing with salt
+  [OK] No dangerouslySetInnerHTML — React XSS protection intact
+  [OK] No open redirects (all redirects are hardcoded paths)
+  [OK] No IDOR vulnerabilities (all resources verified against tenant)
+  [OK] Rate limiting on login (5 attempts/min/IP)
+  [OK] Soft delete for students (status + deleted_at)
+  [OK] Transaction support for multi-step operations
+
+2.2 Critical Issues
+-------------------
+  #  | Issue                               | Location                              | Risk
+  ---|-------------------------------------|---------------------------------------|------------------
+  1  | LIMIT/OFFSET string interpolation   | students, teachers, exams,            | Medium
+     |                                     | marks/stats, staff route.ts           |
+  2  | Weak auth secrets                   | .env.local: "your-secret-key-..."     | Critical in prod
+  3  | DB password "root" in .env.local    | .env.local line 5                     | Critical if committed
+  4  | Hardcoded ngrok dev origin          | next.config.ts line 5                 | Low-Medium
+  5  | CSV formula injection               | students/import/route.ts              | Medium
+  6  | No file size limit on CSV import    | students/import/route.ts              | Medium (DoS)
+  7  | Weak password policy                | validations.ts — min 6 chars          | Medium
+  8  | 24-hour session lifetime            | auth.ts line 129                      | Low-Medium
+  9  | No explicit cookie security flags   | auth.ts — relies on defaults          | Low
+  10 | No security headers                 | next.config.ts                        | Medium
+
+2.3 Rate Limiting Gaps
+----------------------
+  Currently rate-limited:
+    - Login only (5/min/IP)
+
+  NOT rate-limited (should be):
+    - /api/students/import — bulk CSV import
+    - /api/students/export — full data export
+    - /api/marks/bulk — bulk mark uploads
+    - /api/attendance/bulk — bulk attendance
+
+2.4 Vulnerability Matrix
+------------------------
+  Attack Vector       | Status                | Notes
+  --------------------|----------------------|-----------------------------------
+  SQL Injection       | SAFE (except LIMIT)  | Parameterized queries throughout
+  XSS                 | SAFE                 | React escaping, no innerHTML
+  CSRF                | SAFE                 | NextAuth SameSite cookies
+  Brute Force         | PARTIAL              | Login rate-limited, no lockout
+  Session Hijacking   | LOW RISK             | JWT, no explicit secure cookie
+  IDOR                | SAFE                 | Ownership checks on all routes
+  CSV Injection       | VULNERABLE           | No formula prefix sanitization
+  DoS via Upload      | VULNERABLE           | No file size limit
+  Open Redirect       | SAFE                 | All redirects hardcoded
+  Data Export Abuse   | VULNERABLE           | No rate limit, no audit logging
+
+
+SECTION 3: CODE QUALITY FINDINGS
+================================================================================
+
+3.1 Error Handling
+------------------
+  [HIGH]   No structured logging — only console.error() in 50+ files
+  [HIGH]   No error monitoring — no Sentry, DataDog, etc.
+  [HIGH]   Silent error swallowing — .catch(() => {}) and /* ignore */
+           in attendance, calendar, marks pages
+  [MEDIUM] No 401/403 client-side handling — API errors don't redirect to login
+  [GOOD]   Error boundaries exist (app/error.tsx, school-admin/error.tsx, teacher/error.tsx)
+  [GOOD]   Health check exists (/api/health) with DB latency measurement
+
+3.2 TypeScript Quality
+----------------------
+  - strict: true enabled
+  - Multiple "as any" casts in auth.ts (JWT augmentation), API routes
+  - catch (error: any) patterns instead of proper error typing
+
+3.3 React Patterns
+------------------
+  Pattern                           | Status
+  ----------------------------------|----------------------------------------
+  Key props                         | Mostly good, some use rowIndex
+  useCallback for fetch functions   | Good
+  useMemo for computed values       | Minimal — only in students page
+  React.memo on shared components   | MISSING
+  AbortController for fetch cleanup | MISSING — potential memory leaks
+  Event listener cleanup (Modal)    | Good
+  Timer cleanup (debounce, banners) | Good
+
+3.4 Data Fetching
+-----------------
+  - Raw fetch() + useEffect everywhere — no SWR or React Query
+  - api-client.ts exists but is NEVER IMPORTED (dead code)
+  - No request deduplication or caching
+  - No optimistic updates
+
+3.5 Dead Code
+-------------
+  - app/lib/api-client.ts — centralized API client, never used
+  - Commented-out nav items in DashboardLayout.tsx (Reports links)
+
+3.6 Deprecated API
+------------------
+  - ArrowRightOnRectangleIcon deprecated in Heroicons
+    Replace with ArrowRightStartOnRectangleIcon
+
+
+SECTION 4: PERFORMANCE & SCALABILITY
+================================================================================
+
+4.1 Database
+------------
+  Finding                                                       | Impact
+  --------------------------------------------------------------|------------------
+  Pool: 50 connections, no timeout config                       | Add timeouts
+  No query caching (Redis/in-memory)                            | Every request hits DB
+  Exam status auto-update on every GET (exams/route.ts:22-39)   | Unnecessary writes
+  JSON_CONTAINS for teacher lookup in auth (auth.ts:78)         | Unindexed, slow
+  Performance indexes exist (migration 002)                     | Good
+  Batch processing for bulk ops (chunks of 50)                  | Good
+  No N+1 query patterns detected                                | Good
+
+4.2 Frontend
+------------
+  Finding                                             | Impact
+  ----------------------------------------------------|-------------------------
+  All pages are client-side ("use client")             | No SSR/ISR benefits
+  No dynamic imports for heavy libs (PDF, Excel)       | Larger bundle
+  No next/font optimization                            | Font loading not optimized
+  428+ hardcoded strings (no i18n)                     | Can't localize
+  Good loading/skeleton states                         | Good UX
+  next/image used correctly                            | Good
+
+4.3 Scalability Limits
+----------------------
+  Threshold                 | Bottleneck                    | Fix
+  --------------------------|-------------------------------|----------------------------
+  >100 concurrent users     | No caching, all DB hits       | Add Redis
+  >500 concurrent users     | 50-connection DB pool         | Increase pool, read replicas
+  >1000 concurrent users    | In-memory rate limiter        | Distributed rate limiter
+  Multi-server deployment   | Rate limiter state lost       | Redis-backed rate limiter
+  Large CSV imports         | Entire file in memory         | Streaming parser + size limit
+
+
+SECTION 5: DEPLOYMENT & DEVOPS
+================================================================================
+
+5.1 What's Missing
+------------------
+  [MISSING] Dockerfile / docker-compose
+  [MISSING] CI/CD pipeline (GitHub Actions etc.)
+  [MISSING] Automated tests (any framework) — zero test coverage
+  [MISSING] Database backup strategy
+  [MISSING] Process manager (PM2, systemd)
+  [MISSING] Infrastructure as Code (Terraform etc.)
+  [MISSING] Node version pinning (.nvmrc / engines)
+  [MISSING] Prettier
+  [MISSING] Production env config — only .env.local exists
+  [MISSING] CORS configuration (implicit only)
+  [MISSING] SSL/TLS at app level (needs reverse proxy)
+  [MISSING] API documentation
+
+5.2 What Exists
+---------------
+  [OK] output: 'standalone' in next.config — good for containerization
+  [OK] Migration runner (migrations/run.ts) with up/status/create commands
+  [OK] npm scripts for dev/build/start/lint/migrate
+  [OK] .gitignore is comprehensive
+  [OK] README.md covers setup (no deployment guide)
+  [OK] Health check endpoint at /api/health
+
+
+SECTION 6: MULTI-TENANCY READINESS
+================================================================================
+
+6.1 Current State (Strong Foundation)
+--------------------------------------
+  [OK] All API routes filter by partner_id consistently
+  [OK] Auth context resolves tenant at request time
+  [OK] No shared state or global mutable data
+  [OK] Stateless JWT sessions
+
+6.2 Gaps to Address
+-------------------
+  Gap                                                    | Fix
+  -------------------------------------------------------|------------------------------------
+  partner_teachers.teacher_ids is a JSON array           | Normalize to junction table
+  Inconsistent naming: ctx.schoolId vs ctx.partnerUserId | Standardize naming
+  No database-level tenant isolation                     | Add tenant_id column or views
+  Rate limiter is per-server, not per-tenant             | Add tenant-aware rate limiting
+
+
+SECTION 7: RECOMMENDED IMPROVEMENTS (PRIORITIZED)
+================================================================================
+
+Phase A — Critical Security (Immediate, ~3 hours)
+--------------------------------------------------
+  1. Parameterize LIMIT/OFFSET in 5 API routes
+  2. Generate strong auth secrets + add startup validation
+  3. Remove ngrok dev origin from next.config (make env-conditional)
+  4. Strengthen password policy (min 8, uppercase + number + special)
+  5. Add CSV formula injection protection (strip =+-@\t\r prefixes)
+  6. Add file size limit on CSV import (10MB max)
+  7. Fix deprecated icon (ArrowRightOnRectangleIcon -> ArrowRightStartOnRectangleIcon)
+  8. Add security headers (X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy)
+
+Phase B — Auth Hardening (~3 hours)
+------------------------------------
+  1. Explicit cookie config (httpOnly, secure in prod, sameSite: 'lax')
+  2. Reduce session maxAge from 24h -> 8h
+  3. Rate limit bulk endpoints (import, export, bulk marks/attendance)
+  4. Add account lockout after 10 failed login attempts (30 min lockout)
+  5. Add audit logging to erp_audit_logs table for sensitive ops
+  6. Add 401/403 client-side interceptor — redirect to login on auth failures
+
+Phase C — Code Quality (~4 hours)
+----------------------------------
+  1. Add AbortController to all fetch calls in useEffect for cleanup
+  2. Either use api-client.ts or delete it — currently dead code
+  3. Fix silent error swallowing — replace /* ignore */ catches
+  4. Add structured logging (pino or winston) — replace all console.error()
+  5. Remove "as any" casts — add proper NextAuth type augmentation
+  6. Add React.memo to shared components (Button, Input, Card, etc.)
+
+Phase D — Multi-Tenancy (~3 hours)
+-----------------------------------
+  1. Normalize partner_teachers — create junction table
+     partner_teacher_assignments(partner_id, teacher_id)
+  2. Standardize tenant ID naming — always use ctx.partnerUserId
+  3. Move exam status auto-update off the GET path (scheduled or on-demand)
+
+Phase E — Scalability (~5 hours)
+---------------------------------
+  1. Add Redis caching — dashboard stats (5min TTL), partner config (15min),
+     class lists (10min)
+  2. Dynamic imports for PDF and Excel libraries
+  3. Add next/font for Inter font optimization
+  4. Increase DB pool timeouts — connectTimeout: 10000, acquireTimeout: 10000
+  5. Add connection error handling for pool exhaustion
+
+Phase F — DevOps & Deployment (~6 hours)
+-----------------------------------------
+  1. Create Dockerfile + docker-compose.yml (app + MySQL)
+  2. Add GitHub Actions CI — lint, build, (future: test)
+  3. Pin Node version — .nvmrc with Node 20, engines in package.json
+  4. Add Prettier with config
+  5. Create .env.production.example with all required vars documented
+  6. Add database backup script (mysqldump cron)
+  7. Add PM2 config for production process management
+
+Phase G — Testing (~ongoing)
+-----------------------------
+  1. Add Vitest for unit tests (validations, utils, auth-utils)
+  2. Add API route integration tests (top 10 critical routes)
+  3. Add Playwright for E2E tests (login flow, student CRUD, attendance)
+
+Phase H — Future Scope
+-----------------------
+  1. Student/Parent portal — extend auth to include student role_id
+  2. i18n support — next-intl for multilingual
+  3. API versioning — /api/v2/ when breaking changes needed
+  4. Real-time notifications — WebSocket or SSE for attendance/marks updates
+  5. Error monitoring — Sentry or DataDog integration
+  6. Feature flags — environment-based or LaunchDarkly for gradual rollouts
+
+
+SECTION 8: VERIFICATION PLAN
+================================================================================
+
+After implementing each phase:
+
+  1.  Build check: npm run build — no TypeScript errors
+  2.  Login flow: Test both admin@school.com and teacher login
+  3.  CRUD operations: Test students, teachers, staff, exams, marks, attendance
+  4.  Rate limiting: Hit login >5 times rapidly — should get 429
+  5.  LIMIT/OFFSET: Test paginated endpoints with various page/limit params
+  6.  Security headers: Check response headers in browser DevTools
+  7.  CSV import: Test with formula-prefixed values (=CMD()) — should be sanitized
+  8.  Large upload: Test with >10MB CSV — should be rejected
+  9.  Session expiry: Wait for session timeout — should redirect to login
+  10. Multi-tenant: Log in as different school admins — verify data isolation
+
+
+SECTION 9: SUMMARY SCORECARD
+================================================================================
+
+  Area                   | Current Score | Target Score
+  -----------------------|---------------|-------------
+  Authentication         |     7/10      |    9/10
+  Authorization (RBAC)   |     9/10      |    9/10
+  SQL Security           |     8/10      |   10/10
+  Input Validation       |     7/10      |    9/10
+  Error Handling         |     4/10      |    8/10
+  Logging & Monitoring   |     1/10      |    7/10
+  Testing                |     0/10      |    6/10
+  Multi-Tenancy          |     8/10      |    9/10
+  Scalability            |     4/10      |    7/10
+  DevOps/CI/CD           |     2/10      |    7/10
+  Code Quality           |     6/10      |    8/10
+  Documentation          |     3/10      |    6/10
+  -----------------------|---------------|-------------
+  OVERALL                |     5/10      |    8/10
+
+================================================================================
+                              END OF AUDIT REPORT
+================================================================================

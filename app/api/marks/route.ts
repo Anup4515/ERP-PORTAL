@@ -18,9 +18,7 @@ export async function GET(request: Request) {
     // Verify exam belongs to partner and get class_section_id + max marks
     const examRows = await executeQuery<{ class_section_id: number }[]>(
       `SELECT e.class_section_id FROM erp_exams e
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE e.id = ? AND es.partner_id = ?`,
+       WHERE e.id = ? AND e.partner_id = ?`,
       [examId, ctx.partnerUserId]
     )
     if (examRows.length === 0) return NextResponse.json({ error: "Exam not found" }, { status: 404 })

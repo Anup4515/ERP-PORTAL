@@ -14,9 +14,7 @@ export async function GET(
     // Verify exam belongs to partner
     const examCheck = await executeQuery<{ id: number }[]>(
       `SELECT e.id FROM erp_exams e
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE e.id = ? AND es.partner_id = ?`,
+       WHERE e.id = ? AND e.partner_id = ?`,
       [examId, ctx.partnerUserId]
     )
     if (examCheck.length === 0) return NextResponse.json({ error: "Exam not found" }, { status: 404 })
@@ -49,9 +47,7 @@ export async function POST(
     // Verify exam and get class_section_id + date range
     const examRows = await executeQuery<{ id: number; class_section_id: number; start_date: string | null; end_date: string | null }[]>(
       `SELECT e.id, e.class_section_id, e.start_date, e.end_date FROM erp_exams e
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE e.id = ? AND es.partner_id = ?`,
+       WHERE e.id = ? AND e.partner_id = ?`,
       [examId, ctx.partnerUserId]
     )
     if (examRows.length === 0) return NextResponse.json({ error: "Exam not found" }, { status: 404 })
@@ -121,9 +117,7 @@ export async function DELETE(
     const check = await executeQuery<{ id: number }[]>(
       `SELECT es.id FROM erp_exam_schedules es
        JOIN erp_exams e ON e.id = es.exam_id
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions sess ON sess.id = ecs.session_id
-       WHERE es.id = ? AND es.exam_id = ? AND sess.partner_id = ?`,
+       WHERE es.id = ? AND es.exam_id = ? AND e.partner_id = ?`,
       [scheduleId, examId, ctx.partnerUserId]
     )
     if (check.length === 0) return NextResponse.json({ error: "Schedule not found" }, { status: 404 })

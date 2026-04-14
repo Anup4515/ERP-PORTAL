@@ -174,7 +174,7 @@ export default function TeacherTimetablePage() {
                   <thead>
                     <tr className="bg-primary-900 text-white">
                       <th className="sticky left-0 z-20 bg-primary-900 px-3 py-2.5 text-left font-semibold border-r border-primary-800 min-w-[100px]">Period</th>
-                      <th className="sticky left-[100px] z-20 bg-primary-900 px-2 py-2.5 text-center font-semibold border-r border-primary-800 min-w-[60px]">Time</th>
+                      <th className="bg-primary-900 px-2 py-2.5 text-center font-semibold border-r border-primary-800 min-w-[60px]">Time</th>
                       {DAYS.map((d) => (
                         <th key={d} className="px-2 py-2.5 text-center font-semibold border-r border-primary-800 min-w-[130px]">{d}</th>
                       ))}
@@ -190,7 +190,7 @@ export default function TeacherTimetablePage() {
                           <td className={`sticky left-0 z-10 px-3 py-2.5 font-medium border-b border-r border-gray-200 ${bgColor} ${!isClass ? "text-gray-500 italic" : "text-gray-900"}`}>
                             {period.label}
                           </td>
-                          <td className={`sticky left-[100px] z-10 px-2 py-2.5 text-center text-gray-500 border-b border-r border-gray-200 ${bgColor}`}>
+                          <td className={`px-2 py-2.5 text-center text-gray-500 border-b border-r border-gray-200 ${bgColor}`}>
                             <div className="text-[10px] leading-tight">
                               {period.start_time?.slice(0, 5)}<br />{period.end_time?.slice(0, 5)}
                             </div>
@@ -260,7 +260,7 @@ export default function TeacherTimetablePage() {
                       <thead>
                         <tr className="bg-primary-900 text-white">
                           <th className="sticky left-0 z-20 bg-primary-900 px-3 py-2.5 text-left font-semibold border-r border-primary-800 min-w-[100px]">Period</th>
-                          <th className="sticky left-[100px] z-20 bg-primary-900 px-2 py-2.5 text-center font-semibold border-r border-primary-800 min-w-[60px]">Time</th>
+                          <th className="bg-primary-900 px-2 py-2.5 text-center font-semibold border-r border-primary-800 min-w-[60px]">Time</th>
                           {DAYS.map((d) => (
                             <th key={d} className="px-2 py-2.5 text-center font-semibold border-r border-primary-800 min-w-[130px]">{d}</th>
                           ))}
@@ -276,7 +276,7 @@ export default function TeacherTimetablePage() {
                               <td className={`sticky left-0 z-10 px-3 py-2.5 font-medium border-b border-r border-gray-200 ${bgColor} ${!isClass ? "text-gray-500 italic" : "text-gray-900"}`}>
                                 {period.label}
                               </td>
-                              <td className={`sticky left-[100px] z-10 px-2 py-2.5 text-center text-gray-500 border-b border-r border-gray-200 ${bgColor}`}>
+                              <td className={`px-2 py-2.5 text-center text-gray-500 border-b border-r border-gray-200 ${bgColor}`}>
                                 <div className="text-[10px] leading-tight">
                                   {period.start_time?.slice(0, 5)}<br />{period.end_time?.slice(0, 5)}
                                 </div>

@@ -227,8 +227,8 @@ export default function TeacherMarksPage() {
                 {/* Subject name row */}
                 <tr className="bg-primary-900 text-white">
                   <th className="sticky left-0 z-20 bg-primary-900 px-2 py-2 text-left font-semibold border-r border-primary-800 min-w-[40px]">S.No.</th>
-                  <th className="sticky left-[40px] z-20 bg-primary-900 px-2 py-2 text-left font-semibold border-r border-primary-800 min-w-[100px]">Name</th>
-                  <th className="sticky left-[140px] z-20 bg-primary-900 px-2 py-2 text-left font-semibold border-r border-primary-800 min-w-[50px]">Roll No.</th>
+                  <th className="bg-primary-900 px-2 py-2 text-left font-semibold border-r border-primary-800 min-w-[100px]">Name</th>
+                  <th className="bg-primary-900 px-2 py-2 text-left font-semibold border-r border-primary-800 min-w-[50px]">Roll No.</th>
                   {subjects.map((sub) => (
                     <th key={sub.subject_id} colSpan={3} className="px-1 py-2 text-center font-semibold border-r border-primary-800">
                       {sub.subject_name}
@@ -238,8 +238,8 @@ export default function TeacherMarksPage() {
                 {/* Sub-headers */}
                 <tr className="bg-primary-900 text-white">
                   <th className="sticky left-0 z-20 bg-primary-900 border-r border-primary-800" />
-                  <th className="sticky left-[40px] z-20 bg-primary-900 border-r border-primary-800" />
-                  <th className="sticky left-[140px] z-20 bg-primary-900 border-r border-primary-800" />
+                  <th className="bg-primary-900 border-r border-primary-800" />
+                  <th className="bg-primary-900 border-r border-primary-800" />
                   {subjects.map((sub) => (
                     <React.Fragment key={`sub-${sub.subject_id}`}>
                       <th className="px-1 py-1.5 text-center font-medium border-r border-primary-800 min-w-[55px]">Marks</th>
@@ -251,8 +251,8 @@ export default function TeacherMarksPage() {
                 {/* Max marks row */}
                 <tr className="bg-primary-800 text-white">
                   <th className="sticky left-0 z-20 bg-primary-800 border-r border-primary-700" />
-                  <th className="sticky left-[40px] z-20 bg-primary-800 border-r border-primary-700" />
-                  <th className="sticky left-[140px] z-20 bg-primary-800 border-r border-primary-700" />
+                  <th className="bg-primary-800 border-r border-primary-700" />
+                  <th className="bg-primary-800 border-r border-primary-700" />
                   {subjects.map((sub) => (
                     <React.Fragment key={`max-${sub.subject_id}`}>
                       <th className="px-1 py-1.5 text-center font-bold text-green-300 border-r border-primary-700">{sub.maximum_marks}</th>
@@ -266,8 +266,8 @@ export default function TeacherMarksPage() {
                 {students.map((s, idx) => (
                   <tr key={s.enrollment_id} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}>
                     <td className="sticky left-0 z-10 bg-inherit px-2 py-1.5 text-gray-500 font-medium border-b border-r border-gray-100">{idx + 1}</td>
-                    <td className="sticky left-[40px] z-10 bg-inherit px-2 py-1.5 text-gray-900 font-medium border-b border-r border-gray-100 whitespace-nowrap">{s.first_name} {s.last_name}</td>
-                    <td className="sticky left-[140px] z-10 bg-inherit px-2 py-1.5 text-gray-500 border-b border-r border-gray-100">{s.roll_number || "-"}</td>
+                    <td className="bg-inherit px-2 py-1.5 text-gray-900 font-medium border-b border-r border-gray-100 whitespace-nowrap">{s.first_name} {s.last_name}</td>
+                    <td className="bg-inherit px-2 py-1.5 text-gray-500 border-b border-r border-gray-100">{s.roll_number || "-"}</td>
                     {subjects.map((sub) => {
                       const key = `${s.enrollment_id}-${sub.subject_id}`;
                       const entry = editMap.get(key) || { obtained: "", absent: false };

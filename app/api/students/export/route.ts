@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const classSectionId = searchParams.get("class_section_id")
 
-    let whereClause = "WHERE es.partner_id = ? AND es.is_current = 1 AND st.deleted_at IS NULL"
+    let whereClause = "WHERE e.partner_id = ? AND es.is_current = 1 AND st.deleted_at IS NULL"
     const queryParams: any[] = [ctx.partnerUserId]
 
     if (classSectionId) {

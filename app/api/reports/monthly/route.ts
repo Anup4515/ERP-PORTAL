@@ -39,7 +39,7 @@ export async function GET(request: Request) {
        JOIN erp_sessions es ON es.id = ecs.session_id
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
-       WHERE se.id = ? AND es.partner_id = ? AND s.deleted_at IS NULL AND se.status = 'active'`,
+       WHERE se.id = ? AND se.partner_id = ? AND s.deleted_at IS NULL AND se.status = 'active'`,
       [studentId, ctx.partnerUserId]
     )
 

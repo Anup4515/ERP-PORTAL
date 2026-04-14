@@ -7,6 +7,27 @@ import MonthlyReportPDF from "@/app/components/reports/pdf/MonthlyReportPDF"
 import ExamReportPDF from "@/app/components/reports/pdf/ExamReportPDF"
 import AnnualReportPDF from "@/app/components/reports/pdf/AnnualReportPDF"
 
+// CRC32 lookup table
+const crc32Table = (() => {
+  const table = new Uint32Array(256)
+  for (let i = 0; i < 256; i++) {
+    let c = i
+    for (let j = 0; j < 8; j++) {
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
+    }
+    table[i] = c
+  }
+  return table
+})()
+
+function crc32(data: Uint8Array): number {
+  let crc = 0xFFFFFFFF
+  for (let i = 0; i < data.length; i++) {
+    crc = crc32Table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0
+}
+
 // Simple ZIP builder — produces a valid ZIP archive without external dependencies
 function createZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
   const centralDir: Uint8Array[] = []
@@ -15,6 +36,8 @@ function createZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
 
   for (const file of files) {
     const nameBytes = new TextEncoder().encode(file.name)
+    const fileCrc = crc32(file.data)
+
     // Local file header (30 + name + data)
     const local = new Uint8Array(30 + nameBytes.length + file.data.length)
     const lv = new DataView(local.buffer)
@@ -24,7 +47,7 @@ function createZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
     lv.setUint16(8, 0, true)            // compression: store
     lv.setUint16(10, 0, true)           // mod time
     lv.setUint16(12, 0, true)           // mod date
-    lv.setUint32(14, 0, true)           // crc32 (0 for simplicity)
+    lv.setUint32(14, fileCrc, true)     // crc32
     lv.setUint32(18, file.data.length, true) // compressed size
     lv.setUint32(22, file.data.length, true) // uncompressed size
     lv.setUint16(26, nameBytes.length, true) // name length
@@ -43,7 +66,7 @@ function createZip(files: { name: string; data: Uint8Array }[]): Uint8Array {
     cv.setUint16(10, 0, true)
     cv.setUint16(12, 0, true)
     cv.setUint16(14, 0, true)
-    cv.setUint32(16, 0, true)
+    cv.setUint32(16, fileCrc, true)      // crc32
     cv.setUint32(20, file.data.length, true)
     cv.setUint32(24, file.data.length, true)
     cv.setUint16(28, nameBytes.length, true)

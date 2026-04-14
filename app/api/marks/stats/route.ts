@@ -15,9 +15,7 @@ export async function GET(request: Request) {
     // Verify
     const examCheck = await executeQuery<{ id: number }[]>(
       `SELECT e.id FROM erp_exams e
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE e.id = ? AND es.partner_id = ?`,
+       WHERE e.id = ? AND e.partner_id = ?`,
       [examId, ctx.partnerUserId]
     )
     if (examCheck.length === 0) return NextResponse.json({ error: "Exam not found" }, { status: 404 })

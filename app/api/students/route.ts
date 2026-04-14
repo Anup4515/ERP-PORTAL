@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)))
     const offset = (page - 1) * limit
 
-    let whereClause = "WHERE es.partner_id = ? AND es.is_current = 1 AND st.deleted_at IS NULL"
+    let whereClause = "WHERE e.partner_id = ? AND es.is_current = 1 AND st.deleted_at IS NULL"
     const queryParams: (string | number)[] = [ctx.partnerUserId]
 
     if (classSectionId) {
@@ -114,9 +114,9 @@ export async function POST(request: Request) {
 
       await connection.execute(
         `INSERT INTO erp_student_enrollments (
-          student_id, class_section_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
-        [studentId, class_section_id, roll_number || null, student_type || "regular"]
+          student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
+        [studentId, class_section_id, ctx.partnerUserId, roll_number || null, student_type || "regular"]
       )
     })
 

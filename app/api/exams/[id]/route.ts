@@ -4,10 +4,7 @@ import { executeQuery } from "@/app/lib/db"
 
 async function verifyExamOwnership(examId: string, partnerUserId: number) {
   const rows = await executeQuery<{ id: number }[]>(
-    `SELECT e.id FROM erp_exams e
-     JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-     JOIN erp_sessions es ON es.id = ecs.session_id
-     WHERE e.id = ? AND es.partner_id = ?`,
+    `SELECT id FROM erp_exams WHERE id = ? AND partner_id = ?`,
     [examId, partnerUserId]
   )
   return rows.length > 0

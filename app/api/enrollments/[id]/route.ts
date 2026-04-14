@@ -15,9 +15,7 @@ export async function PUT(
     // Verify enrollment belongs to this partner
     const ownershipCheck = await executeQuery<{ id: number }[]>(
       `SELECT e.id FROM erp_student_enrollments e
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE e.id = ? AND es.partner_id = ?`,
+       WHERE e.id = ? AND e.partner_id = ?`,
       [id, ctx.partnerUserId]
     )
     if (ownershipCheck.length === 0) {
@@ -72,9 +70,7 @@ export async function DELETE(
     // Verify enrollment belongs to this partner
     const ownershipCheck = await executeQuery<{ id: number }[]>(
       `SELECT e.id FROM erp_student_enrollments e
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE e.id = ? AND es.partner_id = ?`,
+       WHERE e.id = ? AND e.partner_id = ?`,
       [id, ctx.partnerUserId]
     )
     if (ownershipCheck.length === 0) {

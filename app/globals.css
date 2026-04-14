@@ -35,6 +35,14 @@ body {
   @apply antialiased;
 }
 
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .dashboard-bg {
   background-image: url('/background_ui.png');
   background-size: cover;

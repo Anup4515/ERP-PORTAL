@@ -71,6 +71,7 @@ export default function SessionsTab() {
   const openCreateModal = () => {
     setEditingSession(null);
     setFormData(initialFormData);
+    setFormError(null);
     setModalOpen(true);
   };
 
@@ -81,6 +82,7 @@ export default function SessionsTab() {
       start_date: session.start_date?.slice(0, 10) ?? "",
       end_date: session.end_date?.slice(0, 10) ?? "",
     });
+    setFormError(null);
     setModalOpen(true);
   };
 
@@ -90,23 +92,32 @@ export default function SessionsTab() {
     setFormData(initialFormData);
   };
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     setSaving(true);
     try {
       const url = editingSession
         ? `/api/sessions/${editingSession.id}`
         : "/api/sessions";
       const method = editingSession ? "PUT" : "POST";
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setFormError(json?.error || "Failed to save session. Please check your inputs.");
+        return;
+      }
       closeModal();
       await fetchSessions();
     } catch (err) {
       console.error("Failed to save session:", err);
+      setFormError("Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -247,6 +258,11 @@ export default function SessionsTab() {
         size="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && (
+            <div className="px-3 py-2.5 rounded-lg text-sm font-medium bg-red-50 text-red-800 border border-red-200">
+              {formError}
+            </div>
+          )}
           <Input
             label="Session Name"
             id="session-name"

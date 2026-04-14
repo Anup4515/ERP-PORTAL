@@ -19,7 +19,7 @@ export async function GET(
        JOIN erp_sessions es ON es.id = ecs.session_id
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
-       WHERE e.student_id = ? AND es.partner_id = ?
+       WHERE e.student_id = ? AND e.partner_id = ?
        ORDER BY es.start_date DESC`,
       [id, ctx.partnerUserId]
     )
@@ -66,9 +66,7 @@ export async function POST(
     const studentCheck = await executeQuery<{ id: number }[]>(
       `SELECT st.id FROM students st
        JOIN erp_student_enrollments e ON e.student_id = st.id
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE st.id = ? AND es.partner_id = ? AND st.deleted_at IS NULL`,
+       WHERE st.id = ? AND e.partner_id = ? AND st.deleted_at IS NULL`,
       [studentId, ctx.partnerUserId]
     )
     if (studentCheck.length === 0) {
@@ -77,9 +75,9 @@ export async function POST(
 
     const result = await executeQuery<{ insertId: number }>(
       `INSERT INTO erp_student_enrollments (
-        student_id, class_section_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
-      [studentId, class_section_id, roll_number || null, student_type || "regular"]
+        student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
+      [studentId, class_section_id, ctx.partnerUserId, roll_number || null, student_type || "regular"]
     )
 
     return NextResponse.json(

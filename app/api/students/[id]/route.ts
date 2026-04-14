@@ -61,9 +61,7 @@ export async function PUT(
     const ownershipCheck = await executeQuery<{ id: number }[]>(
       `SELECT st.id FROM students st
        JOIN erp_student_enrollments e ON e.student_id = st.id
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE st.id = ? AND es.partner_id = ? AND st.deleted_at IS NULL`,
+       WHERE st.id = ? AND e.partner_id = ? AND st.deleted_at IS NULL`,
       [id, ctx.partnerUserId]
     )
     if (ownershipCheck.length === 0) {
@@ -85,7 +83,7 @@ export async function PUT(
     if (last_name !== undefined) { fields.push("last_name = ?"); values.push(last_name) }
     if (middle_name !== undefined) { fields.push("middle_name = ?"); values.push(middle_name || null) }
     if (gender !== undefined) { fields.push("gender = ?"); values.push(gender || null) }
-    if (date_of_birth !== undefined) { fields.push("date_of_birth = ?"); values.push(date_of_birth || null) }
+    if (date_of_birth !== undefined) { fields.push("date_of_birth = ?"); values.push(date_of_birth ? date_of_birth.substring(0, 10) : null) }
     if (email !== undefined) { fields.push("email = ?"); values.push(email) }
     if (phone !== undefined) { fields.push("phone = ?"); values.push(phone || null) }
     if (alternate_phone !== undefined) { fields.push("alternate_phone = ?"); values.push(alternate_phone || null) }
@@ -144,9 +142,7 @@ export async function DELETE(
     const ownershipCheck = await executeQuery<{ id: number }[]>(
       `SELECT st.id FROM students st
        JOIN erp_student_enrollments e ON e.student_id = st.id
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE st.id = ? AND es.partner_id = ? AND st.deleted_at IS NULL`,
+       WHERE st.id = ? AND e.partner_id = ? AND st.deleted_at IS NULL`,
       [id, ctx.partnerUserId]
     )
     if (ownershipCheck.length === 0) {

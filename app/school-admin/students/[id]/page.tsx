@@ -52,7 +52,7 @@ interface Enrollment {
 
 interface ClassSection {
   class_section_id: string;
-  section_name: string;
+  name: string;
 }
 
 interface ClassWithSections {
@@ -156,7 +156,7 @@ export default function StudentDetailPage() {
       (cls.sections || []).forEach((sec) => {
         opts.push({
           value: sec.class_section_id,
-          label: `${cls.name} - ${sec.section_name}`,
+          label: `${cls.name} - ${sec.name}`,
         });
       });
     });
@@ -172,7 +172,7 @@ export default function StudentDetailPage() {
       email: student.email || "",
       phone: student.phone || "",
       gender: student.gender || "",
-      date_of_birth: student.date_of_birth || "",
+      date_of_birth: student.date_of_birth ? student.date_of_birth.substring(0, 10) : "",
       blood_group: student.blood_group || "",
       height: student.height || "",
       weight: student.weight || "",
@@ -301,6 +301,13 @@ export default function StudentDetailPage() {
     return <Badge variant={variant} size="sm">{status || "N/A"}</Badge>;
   }
 
+  function formatDate(value: string | undefined): string {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return value;
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  }
+
   // Info field display helper
   function InfoField({ label, value }: { label: string; value: string | undefined }) {
     return (
@@ -396,7 +403,7 @@ export default function StudentDetailPage() {
                   <InfoField label="Email" value={student.email} />
                   <InfoField label="Phone" value={student.phone} />
                   <InfoField label="Gender" value={student.gender} />
-                  <InfoField label="Date of Birth" value={student.date_of_birth} />
+                  <InfoField label="Date of Birth" value={formatDate(student.date_of_birth)} />
                   <InfoField label="Blood Group" value={student.blood_group} />
                   <InfoField label="Height" value={student.height} />
                   <InfoField label="Weight" value={student.weight} />

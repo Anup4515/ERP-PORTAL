@@ -16,8 +16,8 @@ interface TabsProps {
 
 export default function Tabs({ tabs, activeTab, onChange }: TabsProps) {
   return (
-    <div className="border-b border-gray-200">
-      <nav className="flex gap-0 -mb-px" role="tablist">
+    <div className="border-b border-gray-200 overflow-x-auto scrollbar-hide">
+      <nav className="flex gap-0 -mb-px min-w-max" role="tablist">
         {tabs.map((tab) => {
           const isActive = tab.key === activeTab;
           return (

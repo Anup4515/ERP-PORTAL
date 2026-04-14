@@ -342,7 +342,7 @@ export default function TeacherHolisticPage() {
                 <thead>
                   <tr className="bg-primary-900 text-white">
                     <th className="sticky left-0 z-20 bg-primary-900 px-3 py-2.5 text-left font-semibold border-r border-primary-800 min-w-[50px]">Roll</th>
-                    <th className="sticky left-[50px] z-20 bg-primary-900 px-3 py-2.5 text-left font-semibold border-r border-primary-800 min-w-[140px]">Student</th>
+                    <th className="bg-primary-900 px-3 py-2.5 text-left font-semibold border-r border-primary-800 min-w-[140px]">Student</th>
                     {subParams.map((sp) => (
                       <th key={sp.id} className="px-2 py-2.5 text-center font-semibold border-r border-primary-800 min-w-[80px]">
                         <span className="text-[10px]">{sp.name}</span>
@@ -357,7 +357,7 @@ export default function TeacherHolisticPage() {
                       <td className="sticky left-0 z-10 px-3 py-2 font-medium text-gray-700 border-b border-r border-gray-100 bg-inherit text-center">
                         {student.roll_number ?? "-"}
                       </td>
-                      <td className="sticky left-[50px] z-10 px-3 py-2 text-gray-900 border-b border-r border-gray-100 bg-inherit whitespace-nowrap">
+                      <td className="px-3 py-2 text-gray-900 border-b border-r border-gray-100 bg-inherit whitespace-nowrap">
                         {student.first_name} {student.last_name}
                       </td>
                       {subParams.map((sp) => {

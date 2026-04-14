@@ -129,9 +129,9 @@ export async function POST(request: Request) {
           const rollNumber = getValue("roll_number")
           await connection.execute(
             `INSERT INTO erp_student_enrollments (
-              student_id, class_section_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
-            ) VALUES (?, ?, ?, 'regular', CURDATE(), 'active', NOW(), NOW())`,
-            [studentId, class_section_id, rollNumber || null]
+              student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, 'regular', CURDATE(), 'active', NOW(), NOW())`,
+            [studentId, class_section_id, ctx.partnerUserId, rollNumber || null]
           )
 
           imported++

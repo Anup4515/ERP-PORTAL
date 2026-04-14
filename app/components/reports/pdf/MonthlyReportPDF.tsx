@@ -62,51 +62,61 @@ export default function MonthlyReportPDF({ data, partner }: MonthlyReportPDFProp
         {holistic.length > 0 && (
           <View>
             <Text style={styles.sectionTitle}>Holistic Development</Text>
-            <View style={styles.table}>
-              {/* Header */}
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 2, textAlign: "left" }]}>Parameter</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 3, textAlign: "left" }]}>Sub-Parameter</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Rating</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Grade</Text>
-              </View>
-              {/* Rows */}
-              {holistic.map((param) =>
-                param.sub_parameters.map((sub, idx) => (
+            <View style={{ marginBottom: 10 }}>
+              {holistic.map((param) => {
+                const avg = param.average ?? 0
+                const barWidth = (avg / 10) * 100
+                const barColor = avg <= 3 ? "#f87171" : avg <= 6 ? "#facc15" : "#4ade80"
+                return (
                   <View
-                    key={`${param.parameter_name}-${sub.name}`}
-                    style={[
-                      styles.tableRow,
-                      idx % 2 === 0 ? {} : { backgroundColor: "#f9f9f9" },
-                    ]}
+                    key={param.parameter_name}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 6,
+                      gap: 6,
+                    }}
                   >
-                    <Text style={[styles.tableCellLeft, { flex: 2, fontFamily: idx === 0 ? "Helvetica-Bold" : "Helvetica" }]}>
-                      {idx === 0 ? param.parameter_name : ""}
+                    <Text
+                      style={{
+                        width: 120,
+                        fontSize: 8,
+                        color: "#444",
+                      }}
+                    >
+                      {param.parameter_name}
                     </Text>
-                    <Text style={[styles.tableCellLeft, { flex: 3 }]}>{sub.name}</Text>
-                    <Text style={[styles.tableCell, { flex: 1 }]}>
-                      {sub.rating_value != null ? sub.rating_value : "-"}
-                    </Text>
-                    <Text style={[styles.tableCell, { flex: 1 }]}>
-                      {sub.rating_grade ?? "-"}
+                    <View
+                      style={{
+                        flex: 1,
+                        height: 10,
+                        backgroundColor: "#f0f0f0",
+                        borderRadius: 5,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: `${barWidth}%`,
+                          height: 10,
+                          backgroundColor: barColor,
+                          borderRadius: 5,
+                        }}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        width: 30,
+                        fontSize: 8,
+                        fontFamily: "Helvetica-Bold",
+                        textAlign: "right",
+                        color: avg <= 3 ? "#dc2626" : avg <= 6 ? "#ca8a04" : "#16a34a",
+                      }}
+                    >
+                      {param.average != null ? param.average.toFixed(1) : "-"}
                     </Text>
                   </View>
-                ))
-              )}
-              {/* Averages row */}
-              <View style={styles.totalRow}>
-                <Text style={[styles.tableCellLeft, { flex: 2, fontFamily: "Helvetica-Bold" }]}>Overall Average</Text>
-                <Text style={[styles.tableCellLeft, { flex: 3 }]} />
-                <Text style={[styles.tableCell, { flex: 1, fontFamily: "Helvetica-Bold" }]}>
-                  {(() => {
-                    const rated = holistic.filter((p) => p.average != null)
-                    if (rated.length === 0) return "-"
-                    const avg = rated.reduce((s, p) => s + p.average!, 0) / rated.length
-                    return avg.toFixed(1)
-                  })()}
-                </Text>
-                <Text style={[styles.tableCell, { flex: 1 }]} />
-              </View>
+                )
+              })}
             </View>
           </View>
         )}

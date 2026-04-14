@@ -12,7 +12,7 @@ async function verifyTeacherAccessToStudent(
     `SELECT se.id FROM erp_student_enrollments se
      JOIN erp_class_sections ecs ON ecs.id = se.class_section_id
      JOIN erp_sessions es ON es.id = ecs.session_id
-     WHERE se.student_id = ? AND se.status = 'active' AND es.partner_id = ?
+     WHERE se.student_id = ? AND se.status = 'active' AND se.partner_id = ?
        AND es.is_current = 1
        AND (
          ecs.class_teacher_id = ?

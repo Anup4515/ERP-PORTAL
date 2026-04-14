@@ -21,15 +21,13 @@ export async function GET(request: Request) {
     // Auto-update statuses based on today's date before fetching
     await executeQuery(
       `UPDATE erp_exams e
-       JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
        SET e.status = CASE
          WHEN e.end_date IS NOT NULL AND CURDATE() > e.end_date THEN 'completed'
          WHEN e.start_date IS NOT NULL AND CURDATE() >= e.start_date THEN 'in_progress'
          ELSE 'upcoming'
        END,
        e.updated_at = NOW()
-       WHERE es.partner_id = ?
+       WHERE e.partner_id = ?
          AND e.status != CASE
            WHEN e.end_date IS NOT NULL AND CURDATE() > e.end_date THEN 'completed'
            WHEN e.start_date IS NOT NULL AND CURDATE() >= e.start_date THEN 'in_progress'
@@ -47,7 +45,7 @@ export async function GET(request: Request) {
        FROM erp_exams e
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE es.partner_id = ? AND es.is_current = 1${whereExtra}`,
+       WHERE e.partner_id = ? AND es.is_current = 1${whereExtra}`,
       params
     )
     const total = countResult[0].total
@@ -59,7 +57,7 @@ export async function GET(request: Request) {
        JOIN erp_sessions es ON es.id = ecs.session_id
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
-       WHERE es.partner_id = ? AND es.is_current = 1${whereExtra}
+       WHERE e.partner_id = ? AND es.is_current = 1${whereExtra}
        ORDER BY e.start_date DESC, e.name
        LIMIT ${limit} OFFSET ${offset}`,
       params
@@ -112,9 +110,9 @@ export async function POST(request: Request) {
 
         // Create exam
         const [result] = await connection.execute(
-          `INSERT INTO erp_exams (class_section_id, name, code, start_date, end_date, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-          [csId, name, code || null, start_date || null, end_date || null, status]
+          `INSERT INTO erp_exams (class_section_id, partner_id, name, code, start_date, end_date, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [csId, ctx.partnerUserId, name, code || null, start_date || null, end_date || null, status]
         )
         const examId = (result as any).insertId
         createdIds.push(examId)

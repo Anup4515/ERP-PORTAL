@@ -22,9 +22,10 @@ export async function GET(request: Request) {
     if (sess.sessionId === null) {
       return NextResponse.json({ data: { students: [], total: 0, page: 1, limit: 50 } })
     }
+    const sessionId: number = sess.sessionId
 
     let whereClause = "WHERE e.partner_id = ? AND es.id = ? AND st.deleted_at IS NULL"
-    const queryParams: (string | number)[] = [ctx.partnerUserId, sess.sessionId]
+    const queryParams: (string | number)[] = [ctx.partnerUserId, sessionId]
 
     if (classSectionId) {
       whereClause += " AND e.class_section_id = ?"

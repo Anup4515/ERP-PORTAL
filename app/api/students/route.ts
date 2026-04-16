@@ -18,6 +18,11 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)))
     const offset = (page - 1) * limit
 
+    // No session yet — return empty list
+    if (sess.sessionId === null) {
+      return NextResponse.json({ data: { students: [], total: 0, page: 1, limit: 50 } })
+    }
+
     let whereClause = "WHERE e.partner_id = ? AND es.id = ? AND st.deleted_at IS NULL"
     const queryParams: (string | number)[] = [ctx.partnerUserId, sess.sessionId]
 

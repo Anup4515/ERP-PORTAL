@@ -36,6 +36,9 @@ export async function GET(
 
     const sess = await resolveSessionId(request, ctx.partnerUserId)
     if (isSessionError(sess)) return sess
+    if (sess.sessionId === null) {
+      return NextResponse.json({ error: "No active session" }, { status: 400 })
+    }
 
     const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId, sess.sessionId)
     if (!hasAccess) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
@@ -70,6 +73,9 @@ export async function PUT(
 
     const sess = await resolveSessionId(request, ctx.partnerUserId)
     if (isSessionError(sess)) return sess
+    if (sess.sessionId === null) {
+      return NextResponse.json({ error: "No active session" }, { status: 400 })
+    }
 
     const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId, sess.sessionId)
     if (!hasAccess) return NextResponse.json({ error: "Not authorized" }, { status: 403 })

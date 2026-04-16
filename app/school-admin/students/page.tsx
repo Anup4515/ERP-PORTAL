@@ -15,6 +15,7 @@ import {
   EyeIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface ClassSection {
   class_section_id: string;
@@ -90,6 +91,7 @@ const STUDENT_TYPE_OPTIONS = [
 const LIMIT = 50;
 
 export default function StudentsPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [classes, setClasses] = useState<ClassWithSections[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [total, setTotal] = useState(0);
@@ -157,7 +159,7 @@ export default function StudentsPage() {
   useEffect(() => {
     async function fetchClasses() {
       try {
-        const res = await fetch("/api/classes");
+        const res = await fetch(withSessionId("/api/classes"));
         const json = await res.json();
         if (json.data) {
           setClasses(json.data);
@@ -167,7 +169,7 @@ export default function StudentsPage() {
       }
     }
     fetchClasses();
-  }, []);
+  }, [viewingSession?.id]);
 
   // Fetch students
   const fetchStudents = useCallback(async () => {
@@ -179,7 +181,7 @@ export default function StudentsPage() {
       params.set("page", String(page));
       params.set("limit", String(LIMIT));
 
-      const res = await fetch(`/api/students?${params.toString()}`);
+      const res = await fetch(withSessionId(`/api/students?${params.toString()}`));
       const json = await res.json();
       if (json.data) {
         setStudents(json.data.students || []);
@@ -190,7 +192,7 @@ export default function StudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterClassSectionId, search, page]);
+  }, [filterClassSectionId, search, page, viewingSession?.id]);
 
   useEffect(() => {
     fetchStudents();
@@ -257,7 +259,8 @@ export default function StudentsPage() {
           </Link>
           <button
             onClick={() => setDeleteId(row.id as string)}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            disabled={isViewingPastSession}
+            className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -323,7 +326,7 @@ export default function StudentsPage() {
       if (form.roll_number) body.roll_number = form.roll_number;
       if (form.student_type) body.student_type = form.student_type;
 
-      const res = await fetch("/api/students", {
+      const res = await fetch(withSessionId("/api/students"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -353,7 +356,7 @@ export default function StudentsPage() {
     try {
       const formData = new FormData();
       formData.append("file", importFile);
-      const res = await fetch("/api/students/import", {
+      const res = await fetch(withSessionId("/api/students/import"), {
         method: "POST",
         body: formData,
       });
@@ -376,7 +379,7 @@ export default function StudentsPage() {
   async function handleExport() {
     const params = new URLSearchParams();
     if (filterClassSectionId) params.set("class_section_id", filterClassSectionId);
-    const url = `/api/students/export${params.toString() ? `?${params.toString()}` : ""}`;
+    const url = withSessionId(`/api/students/export${params.toString() ? `?${params.toString()}` : ""}`);
     window.open(url, "_blank");
   }
 
@@ -385,7 +388,7 @@ export default function StudentsPage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      await fetch(`/api/students/${deleteId}`, { method: "DELETE" });
+      await fetch(withSessionId(`/api/students/${deleteId}`), { method: "DELETE" });
       setDeleteId(null);
       fetchStudents();
     } catch {
@@ -414,7 +417,7 @@ export default function StudentsPage() {
           <Button variant="outline" size="sm" onClick={handleExport}>
             Export Excel
           </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
+          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)} disabled={isViewingPastSession}>
             Add Student
           </Button>
         </div>

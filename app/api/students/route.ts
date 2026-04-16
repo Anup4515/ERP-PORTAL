@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError, ensureCurrentSession } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 import { createStudentSchema, parseOrError } from "@/app/lib/validations"
 
@@ -8,6 +8,9 @@ export async function GET(request: Request) {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
 
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+
     const { searchParams } = new URL(request.url)
     const classSectionId = searchParams.get("class_section_id")
     const search = searchParams.get("search")
@@ -15,8 +18,8 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)))
     const offset = (page - 1) * limit
 
-    let whereClause = "WHERE e.partner_id = ? AND es.is_current = 1 AND st.deleted_at IS NULL"
-    const queryParams: (string | number)[] = [ctx.partnerUserId]
+    let whereClause = "WHERE e.partner_id = ? AND es.id = ? AND st.deleted_at IS NULL"
+    const queryParams: (string | number)[] = [ctx.partnerUserId, sess.sessionId]
 
     if (classSectionId) {
       whereClause += " AND e.class_section_id = ?"
@@ -66,6 +69,13 @@ export async function POST(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
+
+    const { searchParams } = new URL(request.url)
+    const sessionIdParam = searchParams.get("session_id")
+    if (sessionIdParam) {
+      const guard = await ensureCurrentSession(Number(sessionIdParam), ctx.partnerUserId)
+      if (guard) return guard
+    }
 
     const body = await request.json()
     const parsed = parseOrError(createStudentSchema, body)

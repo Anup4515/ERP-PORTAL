@@ -13,6 +13,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Card, StatsCard, Button } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface TeacherStats {
   myClasses: number;
@@ -30,6 +31,7 @@ interface AssignedClass {
 
 export default function TeacherDashboardPage() {
   const router = useRouter();
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +46,8 @@ export default function TeacherDashboardPage() {
     async function load() {
       try {
         const [statsRes, classesRes] = await Promise.all([
-          fetch("/api/dashboard"),
-          fetch("/api/teacher/classes"),
+          fetch(withSessionId("/api/dashboard")),
+          fetch(withSessionId("/api/teacher/classes")),
         ]);
         const statsJson = await statsRes.json();
         const classesJson = await classesRes.json();
@@ -58,7 +60,7 @@ export default function TeacherDashboardPage() {
       }
     }
     load();
-  }, []);
+  }, [viewingSession?.id]);
 
   return (
     <div className="space-y-6">

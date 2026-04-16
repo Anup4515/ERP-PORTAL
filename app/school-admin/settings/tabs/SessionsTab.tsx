@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/app/components/shared/Button";
 import Input from "@/app/components/shared/Input";
 import Modal from "@/app/components/shared/Modal";
@@ -8,6 +9,8 @@ import DataTable from "@/app/components/shared/DataTable";
 import Badge from "@/app/components/shared/Badge";
 import ConfirmDialog from "@/app/components/shared/ConfirmDialog";
 import EmptyState from "@/app/components/shared/EmptyState";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Session {
   id: string;
@@ -42,6 +45,8 @@ function formatDate(dateStr: string): string {
 }
 
 export default function SessionsTab() {
+  const router = useRouter();
+  const { isViewingPastSession } = useViewingSession();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,6 +74,7 @@ export default function SessionsTab() {
   }, [fetchSessions]);
 
   const openCreateModal = () => {
+    if (isViewingPastSession) return;
     setEditingSession(null);
     setFormData(initialFormData);
     setFormError(null);
@@ -76,6 +82,7 @@ export default function SessionsTab() {
   };
 
   const openEditModal = (session: Session) => {
+    if (isViewingPastSession) return;
     setEditingSession(session);
     setFormData({
       name: session.name,
@@ -181,6 +188,7 @@ export default function SessionsTab() {
                 size="sm"
                 loading={settingCurrent === session.id}
                 onClick={() => handleSetCurrent(session.id)}
+                disabled={isViewingPastSession}
               >
                 Set Current
               </Button>
@@ -189,6 +197,7 @@ export default function SessionsTab() {
               variant="ghost"
               size="sm"
               onClick={() => openEditModal(session)}
+              disabled={isViewingPastSession}
             >
               Edit
             </Button>
@@ -197,6 +206,7 @@ export default function SessionsTab() {
               size="sm"
               onClick={() => setDeleteTarget(session)}
               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              disabled={isViewingPastSession}
             >
               Delete
             </Button>
@@ -215,9 +225,21 @@ export default function SessionsTab() {
             Manage your academic sessions and set the current active session.
           </p>
         </div>
-        <Button variant="primary" size="md" onClick={openCreateModal}>
-          Add Session
-        </Button>
+        <div className="flex items-center gap-2">
+          {sessions.some((s) => s.is_current) && (
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => router.push("/school-admin/transition")}
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              Session Transition
+            </Button>
+          )}
+          <Button variant="primary" size="md" onClick={openCreateModal} disabled={isViewingPastSession}>
+            Add Session
+          </Button>
+        </div>
       </div>
 
       {!loading && sessions.length === 0 ? (
@@ -240,7 +262,7 @@ export default function SessionsTab() {
           }
           title="No sessions yet"
           description="Create your first academic session to get started."
-          action={{ label: "Add Session", onClick: openCreateModal }}
+          action={isViewingPastSession ? undefined : { label: "Add Session", onClick: openCreateModal }}
         />
       ) : (
         <DataTable

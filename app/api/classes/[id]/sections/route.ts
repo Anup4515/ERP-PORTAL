@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(
@@ -99,15 +99,13 @@ export async function POST(
     const sectionId = sectionResult.insertId
 
     // Link to current session via erp_class_sections
-    const sessionRows = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [ctx.partnerUserId]
-    )
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
 
     let classSectionId = null
 
-    if (sessionRows.length > 0) {
-      const currentSessionId = sessionRows[0].id
+    {
+      const currentSessionId = sess.sessionId
 
       const linkResult = await executeQuery<{ insertId: number }>(
         `INSERT INTO erp_class_sections (session_id, class_id, section_id, created_at, updated_at)

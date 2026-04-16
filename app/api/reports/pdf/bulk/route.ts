@@ -167,7 +167,7 @@ export async function POST(request: Request) {
       `SELECT se.id as enrollment_id, s.first_name, s.last_name, se.roll_number
        FROM erp_student_enrollments se
        JOIN students s ON s.id = se.student_id
-       WHERE se.class_section_id = ? AND se.status = 'active'
+       WHERE se.class_section_id = ? AND se.status IN ('active', 'completed')
        ORDER BY se.roll_number, s.first_name`,
       [class_section_id]
     )

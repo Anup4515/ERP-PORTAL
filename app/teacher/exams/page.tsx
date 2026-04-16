@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, Select, LoadingSkeleton, EmptyState } from "@/app/components/shared";
 import { DocumentTextIcon, CalendarDaysIcon, ClockIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface TeacherClass {
   class_section_id: number;
@@ -53,6 +54,7 @@ function formatTime(t: string | null) {
 }
 
 export default function TeacherExamsPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [classes, setClasses] = useState<TeacherClass[]>([]);
   const [classSectionId, setClassSectionId] = useState("");
   const [exams, setExams] = useState<Exam[]>([]);
@@ -66,14 +68,14 @@ export default function TeacherExamsPage() {
 
   // Fetch teacher's classes
   useEffect(() => {
-    fetch("/api/teacher/classes")
+    fetch(withSessionId("/api/teacher/classes"))
       .then((r) => r.json())
       .then((json) => {
         if (json.data) setClasses(json.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [viewingSession?.id]);
 
   // Fetch exams when class changes
   const fetchExams = useCallback(async (csId: string) => {
@@ -83,7 +85,7 @@ export default function TeacherExamsPage() {
     }
     setExamsLoading(true);
     try {
-      const res = await fetch(`/api/exams?class_section_id=${csId}&limit=100`);
+      const res = await fetch(withSessionId(`/api/exams?class_section_id=${csId}&limit=100`));
       const json = await res.json();
       setExams(json.data?.exams || []);
     } catch {
@@ -91,7 +93,7 @@ export default function TeacherExamsPage() {
     } finally {
       setExamsLoading(false);
     }
-  }, []);
+  }, [viewingSession?.id]);
 
   useEffect(() => {
     fetchExams(classSectionId);
@@ -111,7 +113,7 @@ export default function TeacherExamsPage() {
 
     setScheduleLoading(examId);
     try {
-      const res = await fetch(`/api/exams/${examId}/schedule`);
+      const res = await fetch(withSessionId(`/api/exams/${examId}/schedule`));
       const json = await res.json();
       setSchedules((prev) => ({ ...prev, [examId]: json.data || [] }));
     } catch {

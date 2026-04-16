@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button, Select, Card } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface AssignedClass {
   class_section_id: number;
@@ -49,6 +50,7 @@ export default function TeacherAttendanceWrapper() {
 function TeacherAttendancePage() {
   const searchParams = useSearchParams();
   const preselected = searchParams.get("class_section_id") || "";
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const now = new Date();
 
   const [classes, setClasses] = useState<AssignedClass[]>([]);
@@ -70,7 +72,7 @@ function TeacherAttendancePage() {
 
   // Fetch assigned classes
   useEffect(() => {
-    fetch("/api/teacher/classes")
+    fetch(withSessionId("/api/teacher/classes"))
       .then((r) => r.json())
       .then((json) => {
         if (json.data) {
@@ -82,7 +84,7 @@ function TeacherAttendancePage() {
       })
       .catch(() => {})
       .finally(() => setClassesLoading(false));
-  }, [preselected]);
+  }, [preselected, viewingSession?.id]);
 
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -93,7 +95,7 @@ function TeacherAttendancePage() {
     setMessage("");
     try {
       const res = await fetch(
-        `/api/teacher/attendance?class_section_id=${selectedCs}&month=${monthStr}`
+        withSessionId(`/api/teacher/attendance?class_section_id=${selectedCs}&month=${monthStr}`)
       );
       if (res.ok) {
         const json = await res.json();
@@ -113,7 +115,7 @@ function TeacherAttendancePage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [selectedCs, monthStr]);
+  }, [selectedCs, monthStr, viewingSession?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -181,7 +183,7 @@ function TeacherAttendancePage() {
         return;
       }
 
-      const res = await fetch("/api/teacher/attendance/bulk", {
+      const res = await fetch(withSessionId("/api/teacher/attendance/bulk"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ class_section_id: Number(selectedCs), records }),
@@ -395,7 +397,7 @@ function TeacherAttendancePage() {
       {/* Sticky Save */}
       {students.length > 0 && dirty.size > 0 && (
         <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 -mx-4 sm:-mx-6">
-          <Button variant="primary" className="w-full" onClick={handleSave} loading={saving}>
+          <Button variant="primary" className="w-full" onClick={handleSave} loading={saving} disabled={isViewingPastSession}>
             Save All Attendance
           </Button>
         </div>

@@ -7,6 +7,7 @@ import {
   AcademicCapIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface AssignedClass {
   class_section_id: number;
@@ -17,18 +18,19 @@ interface AssignedClass {
 }
 
 export default function TeacherClassesPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/teacher/classes")
+    fetch(withSessionId("/api/teacher/classes"))
       .then((r) => r.json())
       .then((json) => {
         if (json.data) setClasses(json.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [viewingSession?.id]);
 
   return (
     <div className="space-y-6">

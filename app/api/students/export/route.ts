@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 import ExcelJS from "exceljs"
 
@@ -8,11 +8,14 @@ export async function GET(request: Request) {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
 
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+
     const { searchParams } = new URL(request.url)
     const classSectionId = searchParams.get("class_section_id")
 
-    let whereClause = "WHERE e.partner_id = ? AND es.is_current = 1 AND st.deleted_at IS NULL"
-    const queryParams: any[] = [ctx.partnerUserId]
+    let whereClause = "WHERE e.partner_id = ? AND es.id = ? AND st.deleted_at IS NULL"
+    const queryParams: any[] = [ctx.partnerUserId, sess.sessionId]
 
     if (classSectionId) {
       whereClause += " AND e.class_section_id = ?"

@@ -17,6 +17,7 @@ import {
   MagnifyingGlassIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Staff {
   id: number;
@@ -54,6 +55,7 @@ const emptyForm = {
 };
 
 export default function StaffPage() {
+  const { isViewingPastSession } = useViewingSession();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -293,6 +295,7 @@ export default function StaffPage() {
         <Button
           variant="primary"
           loading={submitting}
+          disabled={isViewingPastSession}
           onClick={isEdit ? handleEdit : handleAdd}
         >
           {isEdit ? "Save Changes" : "Add Staff"}
@@ -319,6 +322,7 @@ export default function StaffPage() {
         <Button
           variant="primary"
           size="sm"
+          disabled={isViewingPastSession}
           onClick={() => {
             setForm(emptyForm);
             setFormErrors({});
@@ -428,18 +432,21 @@ export default function StaffPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => openEditModal(s)}
-                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          onClick={() => { if (isViewingPastSession) return; openEditModal(s); }}
+                          disabled={isViewingPastSession}
+                          className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Edit"
                         >
                           <PencilSquareIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => {
+                            if (isViewingPastSession) return;
                             setSelectedStaff(s);
                             setShowDeleteDialog(true);
                           }}
-                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          disabled={isViewingPastSession}
+                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Delete"
                         >
                           <TrashIcon className="h-4 w-4" />

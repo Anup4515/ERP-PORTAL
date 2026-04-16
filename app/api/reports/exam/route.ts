@@ -37,7 +37,7 @@ export async function GET(request: Request) {
        JOIN erp_sessions es ON es.id = ecs.session_id
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
-       WHERE se.id = ? AND se.partner_id = ? AND s.deleted_at IS NULL AND se.status = 'active'`,
+       WHERE se.id = ? AND se.partner_id = ? AND s.deleted_at IS NULL AND se.status IN ('active', 'completed')`,
       [studentId, ctx.partnerUserId]
     )
 
@@ -126,7 +126,7 @@ export async function GET(request: Request) {
        FROM erp_marks m
        JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
        JOIN students s2 ON s2.id = se.student_id
-       WHERE m.exam_id = ? AND se.class_section_id = ? AND se.status = 'active' AND s2.deleted_at IS NULL
+       WHERE m.exam_id = ? AND se.class_section_id = ? AND se.status IN ('active', 'completed') AND s2.deleted_at IS NULL
        GROUP BY m.student_enrollment_id
        ORDER BY total DESC`,
       [examId, student.class_section_id]

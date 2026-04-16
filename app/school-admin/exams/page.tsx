@@ -16,6 +16,7 @@ import {
   TrashIcon,
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Section {
   id: number;
@@ -48,6 +49,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ExamsPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [filterCs, setFilterCs] = useState("");
   const [exams, setExams] = useState<Exam[]>([]);
@@ -77,15 +79,15 @@ export default function ExamsPage() {
   }
 
   useEffect(() => {
-    fetch("/api/classes").then((r) => r.json()).then((j) => { if (j.data) setClasses(j.data); }).catch(() => {});
-  }, []);
+    fetch(withSessionId("/api/classes")).then((r) => r.json()).then((j) => { if (j.data) setClasses(j.data); }).catch(() => {});
+  }, [viewingSession?.id]);
 
   const fetchExams = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
     if (filterCs) params.set("class_section_id", filterCs);
     try {
-      const res = await fetch(`/api/exams?${params}`);
+      const res = await fetch(withSessionId(`/api/exams?${params}`));
       if (res.ok) {
         const json = await res.json();
         setExams(json.data?.exams || []);
@@ -93,7 +95,7 @@ export default function ExamsPage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [filterCs, page]);
+  }, [filterCs, page, viewingSession?.id]);
 
   useEffect(() => { fetchExams(); }, [fetchExams]);
   useEffect(() => { setPage(1); }, [filterCs]);
@@ -121,7 +123,7 @@ export default function ExamsPage() {
     if (selectedCsIds.length === 0 || !addName) { setAddError("Select at least one class and enter exam name."); return; }
     setAddSaving(true); setAddError("");
     try {
-      const res = await fetch("/api/exams", {
+      const res = await fetch(withSessionId("/api/exams"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -145,7 +147,7 @@ export default function ExamsPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this exam and all its marks?")) return;
-    await fetch(`/api/exams/${id}`, { method: "DELETE" });
+    await fetch(withSessionId(`/api/exams/${id}`), { method: "DELETE" });
     fetchExams();
   };
 
@@ -155,7 +157,7 @@ export default function ExamsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-primary-900">Exams</h1>
-        <Button variant="primary" size="sm" onClick={() => { resetAddForm(); setShowAddModal(true); }}>
+        <Button variant="primary" size="sm" onClick={() => { resetAddForm(); setShowAddModal(true); }} disabled={isViewingPastSession}>
           <PlusIcon className="h-4 w-4" /> Create Exam
         </Button>
       </div>
@@ -198,10 +200,10 @@ export default function ExamsPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Link href={`/school-admin/exams/${e.id}`} className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit Schedule">
+                        <Link href={`/school-admin/exams/${e.id}`} className={`p-1.5 rounded-lg transition-colors ${isViewingPastSession ? "opacity-40 pointer-events-none" : "text-gray-500 hover:text-primary-600 hover:bg-primary-50"}`} title="Edit Schedule" aria-disabled={isViewingPastSession} tabIndex={isViewingPastSession ? -1 : undefined}>
                           <PencilSquareIcon className="h-4 w-4" />
                         </Link>
-                        <button onClick={() => handleDelete(e.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        <button onClick={() => handleDelete(e.id)} disabled={isViewingPastSession} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none" title="Delete">
                           <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
@@ -296,7 +298,7 @@ export default function ExamsPage() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setShowAddModal(false)}>Cancel</Button>
-            <Button variant="primary" loading={addSaving} onClick={handleAdd}>Create Exam</Button>
+            <Button variant="primary" loading={addSaving} onClick={handleAdd} disabled={isViewingPastSession}>Create Exam</Button>
           </div>
         </div>
       </Modal>

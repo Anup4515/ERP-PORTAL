@@ -32,7 +32,7 @@ export async function GET(request: Request) {
        JOIN erp_subjects sub ON sub.id = m.subject_id
        JOIN erp_student_enrollments se2 ON se2.id = m.student_enrollment_id
        JOIN students s2 ON s2.id = se2.student_id
-       WHERE m.exam_id = ? AND se2.status = 'active' AND s2.deleted_at IS NULL
+       WHERE m.exam_id = ? AND se2.status IN ('active', 'completed') AND s2.deleted_at IS NULL
        GROUP BY m.subject_id, sub.name
        ORDER BY sub.sort_order, sub.name`,
       [examId]
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
        FROM erp_marks m
        JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
        JOIN students s ON s.id = se.student_id
-       WHERE m.exam_id = ? AND se.status = 'active' AND s.deleted_at IS NULL`,
+       WHERE m.exam_id = ? AND se.status IN ('active', 'completed') AND s.deleted_at IS NULL`,
       [examId]
     )
     const total = rankingCount[0].total
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
        FROM erp_marks m
        JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
        JOIN students s ON s.id = se.student_id
-       WHERE m.exam_id = ? AND se.status = 'active' AND s.deleted_at IS NULL
+       WHERE m.exam_id = ? AND se.status IN ('active', 'completed') AND s.deleted_at IS NULL
        GROUP BY m.student_enrollment_id, se.roll_number, s.first_name, s.last_name
        ORDER BY overall_percentage DESC
        LIMIT ${limit} OFFSET ${offset}`,

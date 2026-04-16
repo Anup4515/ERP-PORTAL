@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
+
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
 
     const rows = await executeQuery<Record<string, unknown>[]>(
       `SELECT c.id, c.name, c.code, c.grade_level, c.display_order, c.status,
@@ -14,10 +17,10 @@ export async function GET() {
        FROM classes c
        LEFT JOIN sections s ON s.class_id = c.id AND s.status = 'active'
        LEFT JOIN erp_class_sections ecs ON ecs.class_id = c.id AND ecs.section_id = s.id
-         AND ecs.session_id = (SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1)
+         AND ecs.session_id = ?
        WHERE c.partner_id = ? AND c.status = 'active'
        ORDER BY c.display_order, c.name, s.name`,
-      [ctx.partnerUserId, ctx.partnerUserId]
+      [sess.sessionId, ctx.partnerUserId]
     )
 
     // Group rows by class, nesting sections array under each class

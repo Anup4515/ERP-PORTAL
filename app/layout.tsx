@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import "./globals.css"
 import SessionProvider from "@/app/components/providers/SessionProvider"
+import ViewingSessionProvider from "@/app/components/providers/ViewingSessionProvider"
 
 export const metadata: Metadata = {
   title: "WiserWits - School ERP Portal",
@@ -11,7 +12,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <ViewingSessionProvider>{children}</ViewingSessionProvider>
+        </SessionProvider>
       </body>
     </html>
   )

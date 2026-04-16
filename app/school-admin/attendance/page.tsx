@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Select, Card } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Section {
   id: number;
@@ -38,6 +39,7 @@ const MONTHS = [
 ];
 
 export default function AttendancePage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const now = new Date();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [classSectionValue, setClassSectionValue] = useState("");
@@ -52,13 +54,13 @@ export default function AttendancePage() {
 
   // Fetch classes
   useEffect(() => {
-    fetch("/api/classes")
+    fetch(withSessionId("/api/classes"))
       .then((r) => r.json())
       .then((json) => {
         if (json.data) setClasses(json.data);
       })
       .catch(() => {});
-  }, []);
+  }, [viewingSession?.id]);
 
   // Build combined class-section options
   const classSectionOptions: { value: string; label: string }[] = [];
@@ -86,7 +88,7 @@ export default function AttendancePage() {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/attendance/monthly?class_section_id=${classSectionValue}&month=${monthStr}`
+        withSessionId(`/api/attendance/monthly?class_section_id=${classSectionValue}&month=${monthStr}`)
       );
       if (res.ok) {
         const json = await res.json();
@@ -101,7 +103,7 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [classSectionValue, monthStr]);
+  }, [classSectionValue, monthStr, viewingSession?.id]);
 
   useEffect(() => {
     fetchData();

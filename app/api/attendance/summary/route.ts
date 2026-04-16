@@ -67,7 +67,7 @@ export async function GET(request: Request) {
        JOIN students s ON s.id = se.student_id
        LEFT JOIN erp_attendance_records ar ON ar.student_enrollment_id = se.id
          AND ar.date BETWEEN ? AND ?
-       WHERE se.class_section_id = ? AND se.status = 'active' AND s.deleted_at IS NULL
+       WHERE se.class_section_id = ? AND se.status IN ('active', 'completed') AND s.deleted_at IS NULL
        GROUP BY se.id, se.roll_number, s.first_name, s.last_name
        ORDER BY se.roll_number, s.first_name`,
       [startDate, endDate, classSectionId]

@@ -12,6 +12,7 @@ import {
   LoadingSkeleton,
   ConfirmDialog,
 } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface SubParameter {
   id: number;
@@ -36,6 +37,7 @@ const STAGE_OPTIONS = [
 ];
 
 export default function HolisticParamsTab() {
+  const { isViewingPastSession, withSessionId, viewingSession } = useViewingSession();
   const [parameters, setParameters] = useState<Parameter[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export default function HolisticParamsTab() {
   const fetchParameters = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/holistic/parameters");
+      const res = await fetch(withSessionId("/api/holistic/parameters"));
       if (!res.ok) throw new Error("Failed to fetch parameters");
       const json = await res.json();
       setParameters(json.data);
@@ -69,7 +71,7 @@ export default function HolisticParamsTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [withSessionId, viewingSession?.id]);
 
   useEffect(() => {
     fetchParameters();
@@ -96,7 +98,7 @@ export default function HolisticParamsTab() {
       if (paramForm.stage) body.stage = paramForm.stage;
       if (paramForm.sort_order) body.sort_order = Number(paramForm.sort_order);
 
-      const res = await fetch("/api/holistic/parameters", {
+      const res = await fetch(withSessionId("/api/holistic/parameters"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -118,6 +120,7 @@ export default function HolisticParamsTab() {
   }
 
   function openAddSubModal(parameterId: number) {
+    if (isViewingPastSession) return;
     setSubParentId(parameterId);
     setSubForm({ name: "", sort_order: "" });
     setShowAddSub(true);
@@ -135,7 +138,7 @@ export default function HolisticParamsTab() {
       };
       if (subForm.sort_order) body.sort_order = Number(subForm.sort_order);
 
-      const res = await fetch("/api/holistic/sub-parameters", {
+      const res = await fetch(withSessionId("/api/holistic/sub-parameters"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -159,7 +162,7 @@ export default function HolisticParamsTab() {
   async function handleLoadDefaults() {
     try {
       setLoadingDefaults(true);
-      const res = await fetch("/api/holistic/parameters", {
+      const res = await fetch(withSessionId("/api/holistic/parameters"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ load_defaults: "all" }),
@@ -217,7 +220,7 @@ export default function HolisticParamsTab() {
           >
             Load Defaults
           </Button> */}
-          <Button variant="primary" size="md" onClick={() => setShowAddParam(true)}>
+          <Button variant="primary" size="md" onClick={() => setShowAddParam(true)} disabled={isViewingPastSession}>
             Add Parameter
           </Button>
         </div>
@@ -245,7 +248,7 @@ export default function HolisticParamsTab() {
             }
             title="No Parameters Found"
             description="Get started by adding parameters manually or load the default set of holistic development parameters."
-            action={{
+            action={isViewingPastSession ? undefined : {
               label: "Load Defaults",
               onClick: () => setShowLoadDefaultsConfirm(true),
             }}
@@ -309,7 +312,7 @@ export default function HolisticParamsTab() {
                                 </Badge>
                               </div>
                               <div onClick={(e) => e.stopPropagation()}>
-                                <Button variant="outline" size="sm" onClick={() => openAddSubModal(param.id)}>
+                                <Button variant="outline" size="sm" onClick={() => openAddSubModal(param.id)} disabled={isViewingPastSession}>
                                   Add Sub-Parameter
                                 </Button>
                               </div>

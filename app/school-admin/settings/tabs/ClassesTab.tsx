@@ -8,6 +8,7 @@ import Modal from "@/app/components/shared/Modal";
 import Badge from "@/app/components/shared/Badge";
 import EmptyState from "@/app/components/shared/EmptyState";
 import LoadingSkeleton from "@/app/components/shared/LoadingSkeleton";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Section {
   id: number;
@@ -41,6 +42,7 @@ interface AddSectionForm {
 }
 
 export default function ClassesTab() {
+  const { isViewingPastSession, withSessionId, viewingSession } = useViewingSession();
   const [classes, setClasses] = useState<ClassWithSections[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export default function ClassesTab() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/classes");
+      const res = await fetch(withSessionId("/api/classes"));
       if (!res.ok) {
         throw new Error("Failed to fetch classes");
       }
@@ -82,7 +84,7 @@ export default function ClassesTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [withSessionId, viewingSession?.id]);
 
   useEffect(() => {
     fetchClasses();
@@ -110,7 +112,7 @@ export default function ClassesTab() {
       }
       if (sectionsArray.length > 0) body.sections = sectionsArray;
 
-      const res = await fetch("/api/classes", {
+      const res = await fetch(withSessionId("/api/classes"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -132,6 +134,7 @@ export default function ClassesTab() {
   };
 
   const openAddSection = (classId: number, className: string) => {
+    if (isViewingPastSession) return;
     setAddSectionClassId(classId);
     setAddSectionClassName(className);
     setAddSectionForm({ name: "", room_no: "" });
@@ -154,7 +157,7 @@ export default function ClassesTab() {
         body.room_no = addSectionForm.room_no.trim();
       }
 
-      const res = await fetch(`/api/classes/${addSectionClassId}/sections`, {
+      const res = await fetch(withSessionId(`/api/classes/${addSectionClassId}/sections`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -211,7 +214,7 @@ export default function ClassesTab() {
             Manage your school classes and their sections
           </p>
         </div>
-        <Button variant="primary" onClick={() => setShowAddClass(true)}>
+        <Button variant="primary" onClick={() => setShowAddClass(true)} disabled={isViewingPastSession}>
           Add Class
         </Button>
       </div>
@@ -221,7 +224,7 @@ export default function ClassesTab() {
         <EmptyState
           title="No classes yet"
           description="Create your first class to start organizing sections and students."
-          action={{
+          action={isViewingPastSession ? undefined : {
             label: "Add Class",
             onClick: () => setShowAddClass(true),
           }}
@@ -271,6 +274,7 @@ export default function ClassesTab() {
                   variant="ghost"
                   size="sm"
                   onClick={() => openAddSection(cls.id, cls.name)}
+                  disabled={isViewingPastSession}
                 >
                   + Add Section
                 </Button>

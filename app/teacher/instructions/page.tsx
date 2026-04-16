@@ -7,6 +7,7 @@ import {
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
   ClockIcon,
+  EyeIcon,
   RectangleGroupIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
@@ -178,6 +179,17 @@ export default function TeacherInstructionsPage() {
             "Click 'Save Ratings' to save all entries — you can edit and save again anytime",
           ]}
         />
+        <Step
+          number={8}
+          title="View Past Session Data"
+          icon={<EyeIcon className="w-5 h-5" />}
+          description="Use the session switcher in the top-right corner to view data from previous academic years."
+          items={[
+            "Select any past session from the dropdown to view that year's classes, attendance, marks, and holistic ratings",
+            "A yellow banner confirms you are in read-only mode — no changes can be made",
+            "Click 'Switch to current' on the banner to return to the active session",
+          ]}
+        />
       </div>
 
       {/* Tips */}
@@ -213,6 +225,10 @@ export default function TeacherInstructionsPage() {
           <li className="flex items-start gap-2 text-sm text-yellow-800">
             <span className="mt-0.5">&#9670;</span>
             If holistic parameters are empty, ask your admin to load defaults in Settings → Holistic
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            Use the session switcher (top-right) to view your past classes, attendance, and marks — all read-only
           </li>
         </ul>
       </Card>

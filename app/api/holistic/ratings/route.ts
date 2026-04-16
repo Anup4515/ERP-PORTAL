@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(request: Request) {
@@ -28,15 +28,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Parameter not found" }, { status: 404 })
     }
 
-    // Verify class section belongs to this partner's current session
-    const sessRows = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [ctx.partnerUserId]
-    )
-    if (sessRows.length === 0) {
-      return NextResponse.json({ data: { students: [], sub_parameters: [], ratings: {} } })
-    }
-    const currentSessionId = sessRows[0].id
+    // Verify class section belongs to this partner's resolved session
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+    const currentSessionId = sess.sessionId
 
     const csCheck = await executeQuery<{ id: number }[]>(
       "SELECT id FROM erp_class_sections WHERE id = ? AND session_id = ?",
@@ -65,7 +60,7 @@ export async function GET(request: Request) {
       `SELECT se.id as enrollment_id, se.roll_number, s.first_name, s.last_name
        FROM erp_student_enrollments se
        JOIN students s ON s.id = se.student_id
-       WHERE se.class_section_id = ? AND se.status = 'active' AND s.deleted_at IS NULL
+       WHERE se.class_section_id = ? AND se.status IN ('active', 'completed') AND s.deleted_at IS NULL
        ORDER BY se.roll_number, s.first_name`,
       [classSectionId]
     )

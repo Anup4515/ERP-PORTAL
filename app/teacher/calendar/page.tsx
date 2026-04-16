@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, StatsCard } from "@/app/components/shared";
 import { Button } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -30,6 +31,7 @@ const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 export default function TeacherCalendarPage() {
   const now = new Date();
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
 
@@ -37,18 +39,24 @@ export default function TeacherCalendarPage() {
   const [days, setDays] = useState<CalendarDay[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Get current session
+  // Sync with viewing session from context
   useEffect(() => {
-    fetch("/api/sessions")
-      .then((r) => r.json())
-      .then((json) => {
-        const data: SessionData[] = json.data || [];
-        const current = data.find((s) => s.is_current);
-        if (current) setCurrentSessionId(current.id);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    if (viewingSession) {
+      setCurrentSessionId(viewingSession.id);
+      setLoading(false);
+    } else {
+      // Fallback: fetch sessions and pick current
+      fetch(withSessionId("/api/sessions"))
+        .then((r) => r.json())
+        .then((json) => {
+          const data: SessionData[] = json.data || [];
+          const current = data.find((s) => s.is_current);
+          if (current) setCurrentSessionId(current.id);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [viewingSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
 
@@ -57,7 +65,7 @@ export default function TeacherCalendarPage() {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/calendar?session_id=${currentSessionId}&month=${monthStr}`
+        withSessionId(`/api/calendar?session_id=${currentSessionId}&month=${monthStr}`)
       );
       if (res.ok) {
         const json = await res.json();
@@ -65,7 +73,7 @@ export default function TeacherCalendarPage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [currentSessionId, monthStr]);
+  }, [currentSessionId, monthStr, viewingSession?.id]);
 
   useEffect(() => { fetchCalendar(); }, [fetchCalendar]);
 

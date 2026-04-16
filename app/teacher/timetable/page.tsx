@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, Select, LoadingSkeleton } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface PeriodConfig {
   period_number: number;
@@ -46,6 +47,7 @@ const SLOT_COLORS: Record<string, string> = {
 type ViewMode = "my_schedule" | "class_timetable";
 
 export default function TeacherTimetablePage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [config, setConfig] = useState<PeriodConfig[]>([]);
   const [slots, setSlots] = useState<TeacherSlot[]>([]);
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([]);
@@ -57,7 +59,7 @@ export default function TeacherTimetablePage() {
 
   // Initial fetch — teacher's own schedule + assigned classes
   useEffect(() => {
-    fetch("/api/teacher/timetable")
+    fetch(withSessionId("/api/teacher/timetable"))
       .then((r) => r.json())
       .then((json) => {
         if (json.data) {
@@ -68,7 +70,7 @@ export default function TeacherTimetablePage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [viewingSession?.id]);
 
   // Fetch class timetable when a class is selected
   const fetchClassTimetable = useCallback(async (classSectionId: string) => {
@@ -78,7 +80,7 @@ export default function TeacherTimetablePage() {
     }
     setClassLoading(true);
     try {
-      const res = await fetch(`/api/teacher/timetable?class_section_id=${classSectionId}`);
+      const res = await fetch(withSessionId(`/api/teacher/timetable?class_section_id=${classSectionId}`));
       const json = await res.json();
       if (json.data) {
         setClassSlots(json.data.class_slots || []);
@@ -88,7 +90,7 @@ export default function TeacherTimetablePage() {
     } finally {
       setClassLoading(false);
     }
-  }, []);
+  }, [viewingSession?.id]);
 
   const handleClassChange = (classSectionId: string) => {
     setSelectedClassId(classSectionId);

@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError, ensureCurrentSession } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function POST(request: Request) {
   try {
     const ctx = await getAuthContext(["teacher"])
     if (isAuthError(ctx)) return ctx
+
+    const { searchParams } = new URL(request.url)
+    const sessionIdParam = searchParams.get("session_id")
+    if (sessionIdParam) {
+      const guard = await ensureCurrentSession(Number(sessionIdParam), ctx.partnerUserId)
+      if (guard) return guard
+    }
 
     const body = await request.json()
     const { class_section_id, records } = body
@@ -16,21 +23,15 @@ export async function POST(request: Request) {
     }
 
     // Verify teacher assignment
-    const sessRows = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [ctx.partnerUserId]
-    )
-    if (sessRows.length === 0) {
-      return NextResponse.json({ error: "No active session" }, { status: 400 })
-    }
-    const currentSessionId = sessRows[0].id
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
 
     const csCheck = await executeQuery<{ id: number }[]>(
       `SELECT ecs.id FROM erp_class_sections ecs
        WHERE ecs.id = ? AND ecs.session_id = ?
          AND (ecs.class_teacher_id = ? OR ecs.second_incharge_id = ?
               OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?))`,
-      [class_section_id, currentSessionId, ctx.userId, ctx.userId, ctx.userId]
+      [class_section_id, sess.sessionId, ctx.userId, ctx.userId, ctx.userId]
     )
     if (csCheck.length === 0) {
       return NextResponse.json({ error: "Not authorized for this class" }, { status: 403 })
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     const holidayRows = await executeQuery<{ date: string }[]>(
       `SELECT DATE_FORMAT(date, '%Y-%m-%d') as date FROM erp_calendar_days
        WHERE session_id = ? AND is_holiday = 1`,
-      [currentSessionId]
+      [sess.sessionId]
     )
     const holidaySet = new Set(holidayRows.map((r) => r.date))
 

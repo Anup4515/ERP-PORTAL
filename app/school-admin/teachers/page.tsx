@@ -18,6 +18,7 @@ import {
   EyeIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Teacher {
   user_id: number;
@@ -52,6 +53,7 @@ const emptyForm: TeacherForm = {
 };
 
 export default function TeachersListPage() {
+  const { isViewingPastSession } = useViewingSession();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -240,8 +242,9 @@ export default function TeachersListPage() {
             <EyeIcon className="h-4 w-4" />
           </Link>
           <button
-            onClick={() => openDeleteDialog(row as unknown as Teacher)}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            onClick={() => { if (isViewingPastSession) return; openDeleteDialog(row as unknown as Teacher); }}
+            disabled={isViewingPastSession}
+            className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title="Delete"
           >
             <TrashIcon className="h-4 w-4" />
@@ -338,6 +341,7 @@ export default function TeachersListPage() {
         <Button
           variant="primary"
           loading={submitting}
+          disabled={isViewingPastSession}
           onClick={handleAdd}
         >
           Add Teacher
@@ -378,6 +382,7 @@ export default function TeachersListPage() {
         </div>
         <Button
           variant="primary"
+          disabled={isViewingPastSession}
           onClick={() => {
             setForm(emptyForm);
             setFormErrors({});

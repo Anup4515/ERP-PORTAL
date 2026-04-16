@@ -14,6 +14,7 @@ import {
   TrashIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Section { id: number; name: string; class_section_id: number | null }
 interface ClassData { id: number; name: string; sections: Section[] }
@@ -32,6 +33,7 @@ const SLOT_COLORS: Record<string, string> = {
 };
 
 export default function TimetablePage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [csValue, setCsValue] = useState("");
   const [config, setConfig] = useState<PeriodConfig[]>([]);
@@ -68,10 +70,10 @@ export default function TimetablePage() {
   // Fetch classes + config
   useEffect(() => {
     Promise.all([
-      fetch("/api/classes").then((r) => r.json()),
-      fetch("/api/timetable/config").then((r) => r.json()),
-      fetch("/api/teachers?limit=100").then((r) => r.json()),
-      fetch("/api/staff?limit=100").then((r) => r.json()),
+      fetch(withSessionId("/api/classes")).then((r) => r.json()),
+      fetch(withSessionId("/api/timetable/config")).then((r) => r.json()),
+      fetch(withSessionId("/api/teachers?limit=100")).then((r) => r.json()),
+      fetch(withSessionId("/api/staff?limit=100")).then((r) => r.json()),
     ]).then(([cj, tj, teachJ, staffJ]) => {
       if (cj.data) setClasses(cj.data);
       if (tj.data) setConfig(tj.data);
@@ -89,7 +91,7 @@ export default function TimetablePage() {
       }
       setTeachers(allTeachers);
     }).catch(() => {});
-  }, []);
+  }, [viewingSession?.id, withSessionId]);
 
   // Fetch subjects + slots when class changes
   const fetchSlots = useCallback(async () => {
@@ -97,8 +99,8 @@ export default function TimetablePage() {
     setLoading(true);
     try {
       const [slotsRes, subsRes] = await Promise.all([
-        fetch(`/api/timetable/slots?class_section_id=${csValue}`),
-        fetch(`/api/subjects?class_section_id=${csValue}`),
+        fetch(withSessionId(`/api/timetable/slots?class_section_id=${csValue}`)),
+        fetch(withSessionId(`/api/subjects?class_section_id=${csValue}`)),
       ]);
       const slotsJson = await slotsRes.json();
       const subsJson = await subsRes.json();
@@ -120,7 +122,7 @@ export default function TimetablePage() {
       setGrid(m);
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [csValue]);
+  }, [csValue, viewingSession?.id, withSessionId]);
 
   useEffect(() => { fetchSlots(); }, [fetchSlots]);
 
@@ -161,7 +163,7 @@ export default function TimetablePage() {
     }
 
     try {
-      const res = await fetch("/api/timetable/slots", {
+      const res = await fetch(withSessionId("/api/timetable/slots"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ class_section_id: Number(csValue), slots: slotsToSave }),
@@ -222,7 +224,7 @@ export default function TimetablePage() {
     // Renumber
     const periods = configForm.map((c, i) => ({ ...c, period_number: i + 1 }));
     try {
-      const res = await fetch("/api/timetable/config", {
+      const res = await fetch(withSessionId("/api/timetable/config"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ periods }),
@@ -230,7 +232,7 @@ export default function TimetablePage() {
       if (res.ok) {
         setShowConfigModal(false);
         // Refresh config
-        const cRes = await fetch("/api/timetable/config");
+        const cRes = await fetch(withSessionId("/api/timetable/config"));
         const cj = await cRes.json();
         if (cj.data) setConfig(cj.data);
       }
@@ -245,7 +247,7 @@ export default function TimetablePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-primary-900">Timetable</h1>
-        <Button variant="outline" size="sm" onClick={openConfigModal}>
+        <Button variant="outline" size="sm" onClick={openConfigModal} disabled={isViewingPastSession}>
           <Cog6ToothIcon className="h-4 w-4" /> Period Structure
         </Button>
       </div>
@@ -320,7 +322,8 @@ export default function TimetablePage() {
                               <select
                                 value={cell.subject_id}
                                 onChange={(e) => updateGrid(day, period.period_number, "subject_id", e.target.value)}
-                                className="w-full text-[11px] px-1.5 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                disabled={isViewingPastSession}
+                                className="w-full text-[11px] px-1.5 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <option value="">Subject</option>
                                 {subjects.map((s) => (
@@ -330,7 +333,8 @@ export default function TimetablePage() {
                               <select
                                 value={cell.teacher_id}
                                 onChange={(e) => updateGrid(day, period.period_number, "teacher_id", e.target.value)}
-                                className="w-full text-[11px] px-1.5 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                disabled={isViewingPastSession}
+                                className="w-full text-[11px] px-1.5 py-1 border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <option value="">Teacher</option>
                                 {teachers.map((t) => (
@@ -353,7 +357,7 @@ export default function TimetablePage() {
       {/* Save Button */}
       {csValue && config.length > 0 && (
         <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 -mx-4 sm:-mx-6">
-          <Button variant="primary" className="w-full" onClick={handleSave} loading={saving}>
+          <Button variant="primary" className="w-full" onClick={handleSave} loading={saving} disabled={isViewingPastSession}>
             Save Timetable
           </Button>
         </div>
@@ -369,20 +373,24 @@ export default function TimetablePage() {
               <div key={idx} className="grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-3">
                   <input value={p.label} onChange={(e) => setConfigForm((prev) => prev.map((c, i) => i === idx ? { ...c, label: e.target.value } : c))}
-                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    disabled={isViewingPastSession}
+                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Label" />
                 </div>
                 <div className="col-span-2">
                   <input type="time" value={p.start_time} onChange={(e) => setConfigForm((prev) => prev.map((c, i) => i === idx ? { ...c, start_time: e.target.value } : c))}
-                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500" />
+                    disabled={isViewingPastSession}
+                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed" />
                 </div>
                 <div className="col-span-2">
                   <input type="time" value={p.end_time} onChange={(e) => setConfigForm((prev) => prev.map((c, i) => i === idx ? { ...c, end_time: e.target.value } : c))}
-                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500" />
+                    disabled={isViewingPastSession}
+                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed" />
                 </div>
                 <div className="col-span-3">
                   <select value={p.slot_type} onChange={(e) => setConfigForm((prev) => prev.map((c, i) => i === idx ? { ...c, slot_type: e.target.value } : c))}
-                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white">
+                    disabled={isViewingPastSession}
+                    className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed">
                     <option value="class">Class</option>
                     <option value="break">Break</option>
                     <option value="lunch">Lunch</option>
@@ -390,7 +398,7 @@ export default function TimetablePage() {
                   </select>
                 </div>
                 <div className="col-span-2 text-right">
-                  <button onClick={() => removeConfigRow(idx)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                  <button onClick={() => removeConfigRow(idx)} disabled={isViewingPastSession} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none">
                     <TrashIcon className="h-4 w-4" />
                   </button>
                 </div>
@@ -398,13 +406,13 @@ export default function TimetablePage() {
             ))}
           </div>
 
-          <Button variant="outline" size="sm" onClick={addConfigRow}>
+          <Button variant="outline" size="sm" onClick={addConfigRow} disabled={isViewingPastSession}>
             <PlusIcon className="h-4 w-4" /> Add Period
           </Button>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setShowConfigModal(false)}>Cancel</Button>
-            <Button variant="primary" loading={configSaving} onClick={saveConfig}>Save Structure</Button>
+            <Button variant="primary" loading={configSaving} onClick={saveConfig} disabled={isViewingPastSession}>Save Structure</Button>
           </div>
         </div>
       </Modal>

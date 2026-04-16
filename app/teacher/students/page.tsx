@@ -14,6 +14,7 @@ import {
   PlusIcon,
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface AssignedClass {
   class_section_id: number;
@@ -81,6 +82,7 @@ export default function TeacherStudentsWrapper() {
 function TeacherStudentsPage() {
   const searchParams = useSearchParams();
   const preselected = searchParams.get("class_section_id") || "";
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
 
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [selectedCs, setSelectedCs] = useState(preselected);
@@ -104,7 +106,7 @@ function TeacherStudentsPage() {
 
   // Fetch classes
   useEffect(() => {
-    fetch("/api/teacher/classes")
+    fetch(withSessionId("/api/teacher/classes"))
       .then((r) => r.json())
       .then((json) => {
         if (json.data) {
@@ -116,7 +118,7 @@ function TeacherStudentsPage() {
       })
       .catch(() => {})
       .finally(() => setClassesLoading(false));
-  }, [preselected]);
+  }, [preselected, viewingSession?.id]);
 
   const fetchStudents = useCallback(async () => {
     if (!selectedCs) {
@@ -125,7 +127,7 @@ function TeacherStudentsPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/teacher/students?class_section_id=${selectedCs}`);
+      const res = await fetch(withSessionId(`/api/teacher/students?class_section_id=${selectedCs}`));
       if (res.ok) {
         const json = await res.json();
         setStudents(json.data || []);
@@ -135,7 +137,7 @@ function TeacherStudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCs]);
+  }, [selectedCs, viewingSession?.id]);
 
   useEffect(() => {
     fetchStudents();
@@ -154,7 +156,7 @@ function TeacherStudentsPage() {
     setAddSaving(true);
     setAddError("");
     try {
-      const res = await fetch("/api/teacher/students", {
+      const res = await fetch(withSessionId("/api/teacher/students"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -184,7 +186,7 @@ function TeacherStudentsPage() {
     setEditError("");
     setShowEditModal(true);
     try {
-      const res = await fetch(`/api/teacher/students/${studentId}`);
+      const res = await fetch(withSessionId(`/api/teacher/students/${studentId}`));
       if (res.ok) {
         const json = await res.json();
         const s = json.data as StudentDetail;
@@ -224,7 +226,7 @@ function TeacherStudentsPage() {
     setEditSaving(true);
     setEditError("");
     try {
-      const res = await fetch(`/api/teacher/students/${editStudent.id}`, {
+      const res = await fetch(withSessionId(`/api/teacher/students/${editStudent.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),
@@ -394,7 +396,7 @@ function TeacherStudentsPage() {
             <Button variant="ghost" onClick={() => setShowAddModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" loading={addSaving} onClick={handleAddStudent}>
+            <Button variant="primary" loading={addSaving} onClick={handleAddStudent} disabled={isViewingPastSession}>
               Add Student
             </Button>
           </div>
@@ -477,7 +479,7 @@ function TeacherStudentsPage() {
               >
                 Cancel
               </Button>
-              <Button variant="primary" loading={editSaving} onClick={handleEditSave}>
+              <Button variant="primary" loading={editSaving} onClick={handleEditSave} disabled={isViewingPastSession}>
                 Save Changes
               </Button>
             </div>

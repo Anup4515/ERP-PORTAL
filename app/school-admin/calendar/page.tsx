@@ -13,6 +13,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface CalendarDay {
   id: number;
@@ -35,6 +36,7 @@ const MONTHS = [
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 export default function CalendarPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -42,6 +44,7 @@ export default function CalendarPage() {
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [syncedFromContext, setSyncedFromContext] = useState(false);
 
   const [days, setDays] = useState<CalendarDay[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
@@ -69,13 +72,18 @@ export default function CalendarPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/sessions");
+        const res = await fetch(withSessionId("/api/sessions"));
         if (res.ok) {
           const json = await res.json();
           const data: SessionData[] = json.data || [];
           setSessions(data);
-          const current = data.find((s) => s.is_current) || data[0];
-          if (current) setSelectedSessionId(String(current.id));
+          // Default to viewing session from context, fallback to current
+          if (viewingSession) {
+            setSelectedSessionId(String(viewingSession.id));
+          } else {
+            const current = data.find((s) => s.is_current) || data[0];
+            if (current) setSelectedSessionId(String(current.id));
+          }
         }
       } catch {
         /* ignore */
@@ -84,7 +92,14 @@ export default function CalendarPage() {
       }
     }
     load();
-  }, []);
+  }, [withSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync when global session switcher changes
+  useEffect(() => {
+    if (viewingSession && sessions.length > 0) {
+      setSelectedSessionId(String(viewingSession.id));
+    }
+  }, [viewingSession?.id, sessions.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
 
@@ -97,7 +112,7 @@ export default function CalendarPage() {
     setCalendarLoading(true);
     try {
       const res = await fetch(
-        `/api/calendar?session_id=${selectedSessionId}&month=${monthStr}`
+        withSessionId(`/api/calendar?session_id=${selectedSessionId}&month=${monthStr}`)
       );
       if (res.ok) {
         const json = await res.json();
@@ -108,7 +123,7 @@ export default function CalendarPage() {
     } finally {
       setCalendarLoading(false);
     }
-  }, [selectedSessionId, monthStr]);
+  }, [selectedSessionId, monthStr, viewingSession?.id, withSessionId]);
 
   useEffect(() => {
     fetchCalendar();
@@ -127,6 +142,7 @@ export default function CalendarPage() {
   // --- Single day click ---
   const handleDayClick = (dayData: CalendarDay | undefined) => {
     if (!dayData) return;
+    if (isViewingPastSession) return;
     setSelectedDay(dayData);
     setMarkAsHoliday(!dayData.is_holiday);
     setHolidayReason(dayData.holiday_reason || "");
@@ -137,7 +153,7 @@ export default function CalendarPage() {
     if (!selectedDay) return;
     setSavingDay(true);
     try {
-      const res = await fetch(`/api/calendar/${selectedDay.id}`, {
+      const res = await fetch(withSessionId(`/api/calendar/${selectedDay.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -190,7 +206,7 @@ export default function CalendarPage() {
         });
       }
 
-      const res = await fetch("/api/calendar/holidays", {
+      const res = await fetch(withSessionId("/api/calendar/holidays"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -229,7 +245,7 @@ export default function CalendarPage() {
       return;
     }
     try {
-      const res = await fetch("/api/calendar/holidays", {
+      const res = await fetch(withSessionId("/api/calendar/holidays"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -299,10 +315,10 @@ export default function CalendarPage() {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={openRangeModal}>
+            <Button variant="outline" size="sm" onClick={openRangeModal} disabled={isViewingPastSession}>
               Mark Holiday Range
             </Button>
-            <Button variant="outline" size="sm" onClick={handleMarkSaturdays}>
+            <Button variant="outline" size="sm" onClick={handleMarkSaturdays} disabled={isViewingPastSession}>
               Mark All Saturdays
             </Button>
           </div>
@@ -470,6 +486,7 @@ export default function CalendarPage() {
               variant="primary"
               loading={savingDay}
               onClick={handleSaveDay}
+              disabled={isViewingPastSession}
             >
               {markAsHoliday ? "Mark as Holiday" : "Mark as Working Day"}
             </Button>
@@ -536,7 +553,7 @@ export default function CalendarPage() {
               variant="primary"
               loading={savingRange}
               onClick={handleSaveRange}
-              disabled={!rangeStartDate || !rangeEndDate}
+              disabled={!rangeStartDate || !rangeEndDate || isViewingPastSession}
             >
               Mark as Holiday
             </Button>

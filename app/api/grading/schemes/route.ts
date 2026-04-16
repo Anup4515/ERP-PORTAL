@@ -1,25 +1,18 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError, ensureCurrentSession } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
 
-    // Get the current session
-    const sessions = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [ctx.partnerUserId]
-    )
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
 
-    if (sessions.length === 0) {
-      return NextResponse.json({ data: null, message: "No active session found" })
-    }
+    const sessionId = sess.sessionId
 
-    const sessionId = sessions[0].id
-
-    // Get scheme for the current session
+    // Get scheme for the resolved session
     const schemes = await executeQuery<Record<string, unknown>[]>(
       "SELECT * FROM erp_grading_schemes WHERE partner_id = ? AND session_id = ? LIMIT 1",
       [ctx.partnerUserId, sessionId]
@@ -36,6 +29,13 @@ export async function POST(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
+
+    const { searchParams } = new URL(request.url)
+    const sessionIdParam = searchParams.get("session_id")
+    if (sessionIdParam) {
+      const guard = await ensureCurrentSession(Number(sessionIdParam), ctx.partnerUserId)
+      if (guard) return guard
+    }
 
     const body = await request.json()
     const { name, type } = body

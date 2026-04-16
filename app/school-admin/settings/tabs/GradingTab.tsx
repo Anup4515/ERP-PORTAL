@@ -12,6 +12,7 @@ import {
   EmptyState,
   LoadingSkeleton,
 } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Scheme {
   id: string;
@@ -47,6 +48,7 @@ const rangeColumns = [
 ];
 
 export default function GradingTab() {
+  const { isViewingPastSession, withSessionId, viewingSession } = useViewingSession();
   const [scheme, setScheme] = useState<Scheme | null>(null);
   const [loading, setLoading] = useState(true);
   const [noSession, setNoSession] = useState(false);
@@ -88,15 +90,9 @@ export default function GradingTab() {
   const fetchScheme = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/grading/schemes");
+      const res = await fetch(withSessionId("/api/grading/schemes"));
       if (!res.ok) throw new Error("Failed to fetch grading scheme");
       const json = await res.json();
-
-      if (json.message === "No active session found") {
-        setNoSession(true);
-        setScheme(null);
-        return;
-      }
 
       setNoSession(false);
       setScheme(json.data || null);
@@ -105,12 +101,12 @@ export default function GradingTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [withSessionId, viewingSession?.id]);
 
   const fetchRanges = useCallback(async (schemeId: string) => {
     try {
       setLoadingRanges(true);
-      const res = await fetch(`/api/grading/ranges?scheme_id=${schemeId}`);
+      const res = await fetch(withSessionId(`/api/grading/ranges?scheme_id=${schemeId}`));
       if (!res.ok) throw new Error("Failed to fetch grading ranges");
       const json = await res.json();
       setRanges(json.data);
@@ -119,7 +115,7 @@ export default function GradingTab() {
     } finally {
       setLoadingRanges(false);
     }
-  }, []);
+  }, [withSessionId, viewingSession?.id]);
 
   useEffect(() => {
     fetchScheme();
@@ -136,6 +132,7 @@ export default function GradingTab() {
   // --- Scheme Modal ---
 
   function openSchemeModal() {
+    if (isViewingPastSession) return;
     setSchemeForm({ name: "", type: "percentage" });
     setSchemeErrors({});
     setShowSchemeModal(true);
@@ -156,7 +153,7 @@ export default function GradingTab() {
 
     try {
       setSavingScheme(true);
-      const res = await fetch("/api/grading/schemes", {
+      const res = await fetch(withSessionId("/api/grading/schemes"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -186,6 +183,7 @@ export default function GradingTab() {
   // --- Range Modal ---
 
   function openRangeModal() {
+    if (isViewingPastSession) return;
     setRangeForm({
       grade_label: "",
       min_percentage: "",
@@ -248,7 +246,7 @@ export default function GradingTab() {
         body.sort_order = Number(rangeForm.sort_order);
       }
 
-      const res = await fetch("/api/grading/ranges", {
+      const res = await fetch(withSessionId("/api/grading/ranges"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -326,7 +324,7 @@ export default function GradingTab() {
           <EmptyState
             title="No Grading Scheme Set"
             description="Choose a grading system for this session. This is a one-time setup and cannot be changed mid-session."
-            action={{ label: "Set Grading Scheme", onClick: openSchemeModal }}
+            action={isViewingPastSession ? undefined : { label: "Set Grading Scheme", onClick: openSchemeModal }}
           />
         ) : (
           <div className="rounded-lg border-2 border-primary-500 bg-primary-50/50 p-5">
@@ -384,7 +382,7 @@ export default function GradingTab() {
                 Define percentage to CGPA mapping for this scheme
               </p>
             </div>
-            <Button variant="primary" onClick={openRangeModal}>
+            <Button variant="primary" onClick={openRangeModal} disabled={isViewingPastSession}>
               Add Range
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError, ensureCurrentSession } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function GET(request: Request) {
@@ -7,11 +7,14 @@ export async function GET(request: Request) {
     const ctx = await getAuthContext(["school_admin", "teacher"])
     if (isAuthError(ctx)) return ctx
 
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+
     const { searchParams } = new URL(request.url)
     const classSectionId = searchParams.get("class_section_id")
 
     let whereExtra = ""
-    const params: any[] = [ctx.partnerUserId]
+    const params: any[] = [ctx.partnerUserId, sess.sessionId]
 
     if (classSectionId) {
       whereExtra = " AND e.class_section_id = ?"
@@ -45,7 +48,7 @@ export async function GET(request: Request) {
        FROM erp_exams e
        JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE e.partner_id = ? AND es.is_current = 1${whereExtra}`,
+       WHERE e.partner_id = ? AND es.id = ?${whereExtra}`,
       params
     )
     const total = countResult[0].total
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
        JOIN erp_sessions es ON es.id = ecs.session_id
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
-       WHERE e.partner_id = ? AND es.is_current = 1${whereExtra}
+       WHERE e.partner_id = ? AND es.id = ?${whereExtra}
        ORDER BY e.start_date DESC, e.name
        LIMIT ${limit} OFFSET ${offset}`,
       params
@@ -74,6 +77,13 @@ export async function POST(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
+
+    const { searchParams } = new URL(request.url)
+    const sessionIdParam = searchParams.get("session_id")
+    if (sessionIdParam) {
+      const guard = await ensureCurrentSession(Number(sessionIdParam), ctx.partnerUserId)
+      if (guard) return guard
+    }
 
     const body = await request.json()
     const { class_section_ids, name, code, start_date, end_date } = body

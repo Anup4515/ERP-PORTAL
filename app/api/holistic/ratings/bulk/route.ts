@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError, ensureCurrentSession } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 
 export async function POST(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin", "teacher"])
     if (isAuthError(ctx)) return ctx
+
+    const { searchParams } = new URL(request.url)
+    const sessionIdParam = searchParams.get("session_id")
+    if (sessionIdParam) {
+      const guard = await ensureCurrentSession(Number(sessionIdParam), ctx.partnerUserId)
+      if (guard) return guard
+    }
 
     const body = await request.json()
     const { parameter_id, class_section_id, month, ratings } = body
@@ -26,15 +33,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Parameter not found" }, { status: 404 })
     }
 
-    // Verify class section belongs to this partner's current session
-    const sessRows = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [ctx.partnerUserId]
-    )
-    if (sessRows.length === 0) {
-      return NextResponse.json({ error: "No active session found" }, { status: 400 })
-    }
-    const currentSessionId = sessRows[0].id
+    // Verify class section belongs to this partner's resolved session
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+    const currentSessionId = sess.sessionId
 
     const csCheck = await executeQuery<{ id: number }[]>(
       "SELECT id FROM erp_class_sections WHERE id = ? AND session_id = ?",

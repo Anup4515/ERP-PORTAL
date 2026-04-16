@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button, Select, Card, LoadingSkeleton } from "@/app/components/shared";
 import { ArrowLeftIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface AssignedClass { class_section_id: number; class_name: string; section_name: string }
 interface Exam { id: number; name: string; status: string; class_section_id: number; class_name: string; section_name: string }
@@ -19,6 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 type ViewMode = "list" | "grid";
 
 export default function TeacherMarksPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [examsLoading, setExamsLoading] = useState(true);
@@ -40,7 +42,7 @@ export default function TeacherMarksPage() {
   useEffect(() => {
     async function load() {
       try {
-        const classesRes = await fetch("/api/teacher/classes");
+        const classesRes = await fetch(withSessionId("/api/teacher/classes"));
         const cj = await classesRes.json();
         const assignedClasses = cj.data || [];
         setClasses(assignedClasses);
@@ -48,7 +50,7 @@ export default function TeacherMarksPage() {
         // Fetch exams for all assigned classes
         const allExams: Exam[] = [];
         for (const cls of assignedClasses) {
-          const res = await fetch(`/api/exams?class_section_id=${cls.class_section_id}&limit=100`);
+          const res = await fetch(withSessionId(`/api/exams?class_section_id=${cls.class_section_id}&limit=100`));
           if (res.ok) {
             const ej = await res.json();
             for (const exam of ej.data?.exams || []) {
@@ -63,7 +65,7 @@ export default function TeacherMarksPage() {
       finally { setExamsLoading(false); }
     }
     load();
-  }, []);
+  }, [viewingSession?.id]);
 
   // Open grid for an exam
   const openGrid = useCallback(async (exam: Exam) => {
@@ -72,7 +74,7 @@ export default function TeacherMarksPage() {
     setGridLoading(true);
     setMessage("");
     try {
-      const res = await fetch(`/api/marks/overview?exam_id=${exam.id}`);
+      const res = await fetch(withSessionId(`/api/marks/overview?exam_id=${exam.id}`));
       if (res.ok) {
         const json = await res.json();
         setSubjects(json.data.subjects || []);
@@ -91,7 +93,7 @@ export default function TeacherMarksPage() {
       }
     } catch { /* ignore */ }
     finally { setGridLoading(false); }
-  }, []);
+  }, [viewingSession?.id]);
 
   const updateCell = (enrollmentId: number, subjectId: number, field: "obtained" | "absent", value: string | boolean) => {
     const key = `${enrollmentId}-${subjectId}`;
@@ -128,7 +130,7 @@ export default function TeacherMarksPage() {
     try {
       // Save for each subject
       for (const [subjectId, subMarks] of marksBySubject) {
-        const res = await fetch("/api/marks/bulk", {
+        const res = await fetch(withSessionId("/api/marks/bulk"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ exam_id: selectedExam.id, subject_id: subjectId, marks: subMarks }),
@@ -319,7 +321,7 @@ export default function TeacherMarksPage() {
       {/* Sticky Save */}
       {students.length > 0 && subjects.length > 0 && (
         <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 -mx-4 sm:-mx-6">
-          <Button variant="primary" className="w-full bg-yellow-500 hover:bg-yellow-600" onClick={handleSave} loading={saving}>
+          <Button variant="primary" className="w-full bg-yellow-500 hover:bg-yellow-600" onClick={handleSave} loading={saving} disabled={isViewingPastSession}>
             Save All Marks
           </Button>
         </div>

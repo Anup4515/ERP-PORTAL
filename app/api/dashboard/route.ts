@@ -1,19 +1,32 @@
 import { NextResponse } from "next/server"
 import { executeQuery } from "@/app/lib/db"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const ctx = await getAuthContext(["school_admin", "teacher"])
     if (isAuthError(ctx)) return ctx
 
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+
+    // No session yet — return empty stats
+    if (sess.sessionId === null) {
+      return NextResponse.json({
+        data: {
+          total_students: 0, total_teachers: 0, total_classes: 0,
+          attendance_percentage: 0, upcoming_exams: [], recent_exams: [],
+        },
+      })
+    }
+
     if (ctx.role === "school_admin") {
-      const stats = await getSchoolAdminStats(ctx.partnerUserId)
+      const stats = await getSchoolAdminStats(ctx.partnerUserId, sess.sessionId)
       return NextResponse.json({ data: stats })
     }
 
     if (ctx.role === "teacher") {
-      const stats = await getTeacherStats(ctx.partnerUserId, ctx.userId)
+      const stats = await getTeacherStats(ctx.partnerUserId, ctx.userId, sess.sessionId)
       return NextResponse.json({ data: stats })
     }
 
@@ -30,14 +43,8 @@ export async function GET() {
   }
 }
 
-async function getSchoolAdminStats(partnerUserId: number) {
-  // Get current session
-  const sessionRows = await executeQuery<{ id: number }[]>(
-    "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-    [partnerUserId]
-  )
-
-  const currentSessionId = sessionRows.length > 0 ? sessionRows[0].id : null
+async function getSchoolAdminStats(partnerUserId: number, sessionId: number) {
+  const currentSessionId = sessionId
 
   // Total students (enrollments → class_sections → session for partner scoping)
   const studentRows = await executeQuery<{ count: number }[]>(
@@ -45,7 +52,7 @@ async function getSchoolAdminStats(partnerUserId: number) {
      FROM erp_student_enrollments se
      JOIN erp_class_sections cs ON se.class_section_id = cs.id
      WHERE cs.session_id = ?
-       AND se.status = 'active'`,
+       AND se.status IN ('active', 'completed')`,
     [currentSessionId]
   )
   const totalStudents = studentRows[0]?.count || 0
@@ -98,14 +105,8 @@ async function getSchoolAdminStats(partnerUserId: number) {
   }
 }
 
-async function getTeacherStats(partnerUserId: number, teacherUserId: number) {
-  // Get current session
-  const sessionRows = await executeQuery<{ id: number }[]>(
-    "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-    [partnerUserId]
-  )
-
-  const currentSessionId = sessionRows.length > 0 ? sessionRows[0].id : null
+async function getTeacherStats(partnerUserId: number, teacherUserId: number, sessionId: number) {
+  const currentSessionId = sessionId
 
   // Assigned classes: class_teacher, second_incharge, or subject teacher
   const classRows = await executeQuery<{ count: number }[]>(
@@ -127,7 +128,7 @@ async function getTeacherStats(partnerUserId: number, teacherUserId: number) {
      FROM erp_student_enrollments se
      JOIN erp_class_sections ecs ON ecs.id = se.class_section_id
      WHERE ecs.session_id = ?
-       AND se.status = 'active'
+       AND se.status IN ('active', 'completed')
        AND (
          ecs.class_teacher_id = ?
          OR ecs.second_incharge_id = ?

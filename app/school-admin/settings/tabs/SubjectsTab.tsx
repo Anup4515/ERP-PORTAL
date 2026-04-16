@@ -12,6 +12,7 @@ import {
   EmptyState,
   LoadingSkeleton,
 } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Section {
   id: number;
@@ -53,6 +54,7 @@ const initialForm: SubjectForm = {
 };
 
 export default function SubjectsTab() {
+  const { isViewingPastSession, withSessionId, viewingSession } = useViewingSession();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
   const [selectedClassSectionId, setSelectedClassSectionId] = useState("");
@@ -85,7 +87,7 @@ export default function SubjectsTab() {
     async function fetchClasses() {
       try {
         setClassesLoading(true);
-        const res = await fetch("/api/classes");
+        const res = await fetch(withSessionId("/api/classes"));
         if (!res.ok) throw new Error("Failed to fetch classes");
         const json = await res.json();
         setClasses(json.data || []);
@@ -96,7 +98,7 @@ export default function SubjectsTab() {
       }
     }
     fetchClasses();
-  }, []);
+  }, [withSessionId, viewingSession?.id]);
 
   // Fetch subjects when class-section changes
   const fetchSubjects = useCallback(async (classSectionId: string) => {
@@ -106,7 +108,7 @@ export default function SubjectsTab() {
     }
     try {
       setSubjectsLoading(true);
-      const res = await fetch(`/api/subjects?class_section_id=${classSectionId}`);
+      const res = await fetch(withSessionId(`/api/subjects?class_section_id=${classSectionId}`));
       if (!res.ok) throw new Error("Failed to fetch subjects");
       const json = await res.json();
       setSubjects(json.data || []);
@@ -115,7 +117,7 @@ export default function SubjectsTab() {
     } finally {
       setSubjectsLoading(false);
     }
-  }, []);
+  }, [withSessionId, viewingSession?.id]);
 
   useEffect(() => {
     fetchSubjects(selectedClassSectionId);
@@ -163,6 +165,7 @@ export default function SubjectsTab() {
 
   // Modal helpers
   function openAddModal() {
+    if (isViewingPastSession) return;
     setEditingSubject(null);
     setForm(initialForm);
     setFormErrors({});
@@ -176,6 +179,7 @@ export default function SubjectsTab() {
   }
 
   function openEditModal(subject: Subject) {
+    if (isViewingPastSession) return;
     setEditingSubject(subject);
     setForm({
       name: subject.name,
@@ -233,14 +237,14 @@ export default function SubjectsTab() {
       let res: Response;
 
       if (editingSubject) {
-        res = await fetch(`/api/subjects/${editingSubject.id}`, {
+        res = await fetch(withSessionId(`/api/subjects/${editingSubject.id}`), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
       } else {
         payload.class_section_ids = Array.from(selectedCsIds);
-        res = await fetch("/api/subjects", {
+        res = await fetch(withSessionId("/api/subjects"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -276,7 +280,7 @@ export default function SubjectsTab() {
       setDeleting(true);
       setBanner(null);
 
-      const res = await fetch(`/api/subjects/${deleteTarget.id}`, {
+      const res = await fetch(withSessionId(`/api/subjects/${deleteTarget.id}`), {
         method: "DELETE",
       });
 
@@ -319,6 +323,7 @@ export default function SubjectsTab() {
             variant="secondary"
             size="sm"
             onClick={() => openEditModal(row as unknown as Subject)}
+            disabled={isViewingPastSession}
           >
             Edit
           </Button>
@@ -326,6 +331,7 @@ export default function SubjectsTab() {
             variant="danger"
             size="sm"
             onClick={() => setDeleteTarget(row as unknown as Subject)}
+            disabled={isViewingPastSession}
           >
             Delete
           </Button>
@@ -376,7 +382,7 @@ export default function SubjectsTab() {
           </div>
 
           {selectedClassSectionId && (
-            <Button variant="primary" onClick={openAddModal}>
+            <Button variant="primary" onClick={openAddModal} disabled={isViewingPastSession}>
               Add Subject
             </Button>
           )}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(request: Request) {
@@ -16,21 +16,15 @@ export async function GET(request: Request) {
     }
 
     // Verify teacher assignment
-    const sessRows = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
-      [ctx.partnerUserId]
-    )
-    if (sessRows.length === 0) {
-      return NextResponse.json({ data: { students: [], records: [], holidays: [], total_days: 0 } })
-    }
-    const currentSessionId = sessRows[0].id
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
 
     const csCheck = await executeQuery<{ id: number }[]>(
       `SELECT ecs.id FROM erp_class_sections ecs
        WHERE ecs.id = ? AND ecs.session_id = ?
          AND (ecs.class_teacher_id = ? OR ecs.second_incharge_id = ?
               OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?))`,
-      [classSectionId, currentSessionId, ctx.userId, ctx.userId, ctx.userId]
+      [classSectionId, sess.sessionId, ctx.userId, ctx.userId, ctx.userId]
     )
     if (csCheck.length === 0) {
       return NextResponse.json({ error: "Not authorized for this class" }, { status: 403 })
@@ -45,7 +39,7 @@ export async function GET(request: Request) {
       `SELECT se.id as enrollment_id, se.roll_number, s.first_name, s.last_name
        FROM erp_student_enrollments se
        JOIN students s ON s.id = se.student_id
-       WHERE se.class_section_id = ? AND se.status = 'active'
+       WHERE se.class_section_id = ? AND se.status IN ('active', 'completed')
        ORDER BY se.roll_number, s.first_name`,
       [classSectionId]
     )
@@ -63,7 +57,7 @@ export async function GET(request: Request) {
       `SELECT cd.date FROM erp_calendar_days cd
        WHERE cd.session_id = ? AND cd.date BETWEEN ? AND ? AND cd.is_holiday = 1
        ORDER BY cd.date`,
-      [currentSessionId, startDate, endDate]
+      [sess.sessionId, startDate, endDate]
     )
 
     return NextResponse.json({

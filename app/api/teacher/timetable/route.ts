@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(request: Request) {
   try {
     const ctx = await getAuthContext(["teacher"])
     if (isAuthError(ctx)) return ctx
+
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
 
     // Get period config
     const config = await executeQuery(
@@ -24,9 +27,9 @@ export async function GET(request: Request) {
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
        LEFT JOIN erp_subjects sub ON sub.id = ts.subject_id
-       WHERE ts.teacher_id = ? AND es.partner_id = ? AND es.is_current = 1
+       WHERE ts.teacher_id = ? AND es.id = ?
        ORDER BY FIELD(ts.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'), ts.period_number`,
-      [ctx.userId, ctx.partnerUserId]
+      [ctx.userId, sess.sessionId]
     )
 
     // Get assigned classes (as class teacher, second incharge, or subject teacher)
@@ -36,11 +39,11 @@ export async function GET(request: Request) {
        JOIN erp_sessions es ON es.id = ecs.session_id
        JOIN classes c ON c.id = ecs.class_id
        JOIN sections sec ON sec.id = ecs.section_id
-       WHERE es.partner_id = ? AND es.is_current = 1
+       WHERE es.id = ?
          AND (ecs.class_teacher_id = ? OR ecs.second_incharge_id = ?
               OR ecs.id IN (SELECT class_section_id FROM erp_subjects WHERE teacher_id = ?))
        ORDER BY c.name, sec.name`,
-      [ctx.partnerUserId, ctx.userId, ctx.userId, ctx.userId]
+      [sess.sessionId, ctx.userId, ctx.userId, ctx.userId]
     )
 
     // Get class_section_id from query params for class timetable view

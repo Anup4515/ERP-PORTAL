@@ -156,16 +156,57 @@ export async function DELETE(
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 })
     }
 
-    // Remove teacher from partner_teachers JSON array
-    await executeQuery(
-      `UPDATE partner_teachers
-       SET teacher_ids = JSON_REMOVE(teacher_ids, JSON_UNQUOTE(JSON_SEARCH(teacher_ids, 'one', ?))),
-           updated_at = NOW()
-       WHERE partner_id = ?`,
-      [id, ctx.partnerUserId]
-    )
+    await executeTransaction(async (connection) => {
+      // 1. Remove teacher from partner_teachers JSON array
+      const [ptRows] = await connection.execute(
+        `SELECT id, teacher_ids FROM partner_teachers WHERE partner_id = ?`,
+        [ctx.partnerUserId]
+      )
+      if ((ptRows as any[]).length > 0) {
+        await connection.execute(
+          `UPDATE partner_teachers
+           SET teacher_ids = JSON_REMOVE(
+             teacher_ids,
+             IFNULL(JSON_UNQUOTE(JSON_SEARCH(teacher_ids, 'one', ?)), '$[99999]')
+           ), updated_at = NOW()
+           WHERE partner_id = ?`,
+          [id, ctx.partnerUserId]
+        )
+      }
 
-    return NextResponse.json({ message: "Teacher removed successfully" })
+      // 2. Unassign from class sections (class_teacher / second_incharge)
+      await connection.execute(
+        `UPDATE erp_class_sections SET class_teacher_id = NULL, updated_at = NOW()
+         WHERE class_teacher_id = ?`,
+        [id]
+      )
+      await connection.execute(
+        `UPDATE erp_class_sections SET second_incharge_id = NULL, updated_at = NOW()
+         WHERE second_incharge_id = ?`,
+        [id]
+      )
+
+      // 3. Unassign from subjects
+      await connection.execute(
+        `UPDATE erp_subjects SET teacher_id = NULL, updated_at = NOW()
+         WHERE teacher_id = ?`,
+        [id]
+      )
+
+      // 4. Delete teacher record
+      await connection.execute(
+        `DELETE FROM teachers WHERE user_id = ? AND partner_id = ?`,
+        [id, ctx.schoolId]
+      )
+
+      // 5. Delete user record
+      await connection.execute(
+        `DELETE FROM users WHERE id = ? AND role_id = 5`,
+        [id]
+      )
+    })
+
+    return NextResponse.json({ message: "Teacher deleted successfully" })
   } catch (error) {
     console.error("Teacher DELETE error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

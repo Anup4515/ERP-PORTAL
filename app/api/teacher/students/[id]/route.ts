@@ -1,26 +1,26 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 // Helper: verify teacher is assigned to the class this student is enrolled in
 async function verifyTeacherAccessToStudent(
   studentId: number,
   teacherUserId: number,
-  partnerUserId: number
+  partnerUserId: number,
+  sessionId: number
 ): Promise<boolean> {
   const rows = await executeQuery<{ id: number }[]>(
     `SELECT se.id FROM erp_student_enrollments se
      JOIN erp_class_sections ecs ON ecs.id = se.class_section_id
-     JOIN erp_sessions es ON es.id = ecs.session_id
-     WHERE se.student_id = ? AND se.status = 'active' AND se.partner_id = ?
-       AND es.is_current = 1
+     WHERE se.student_id = ? AND se.status IN ('active', 'completed') AND se.partner_id = ?
+       AND ecs.session_id = ?
        AND (
          ecs.class_teacher_id = ?
          OR ecs.second_incharge_id = ?
          OR ecs.id IN (SELECT DISTINCT class_section_id FROM erp_subjects WHERE teacher_id = ?)
        )
      LIMIT 1`,
-    [studentId, partnerUserId, teacherUserId, teacherUserId, teacherUserId]
+    [studentId, partnerUserId, sessionId, teacherUserId, teacherUserId, teacherUserId]
   )
   return rows.length > 0
 }
@@ -34,7 +34,10 @@ export async function GET(
     const ctx = await getAuthContext(["teacher"])
     if (isAuthError(ctx)) return ctx
 
-    const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId)
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+
+    const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId, sess.sessionId)
     if (!hasAccess) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
 
     const rows = await executeQuery(
@@ -65,7 +68,10 @@ export async function PUT(
     const ctx = await getAuthContext(["teacher"])
     if (isAuthError(ctx)) return ctx
 
-    const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId)
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+
+    const hasAccess = await verifyTeacherAccessToStudent(Number(id), ctx.userId, ctx.partnerUserId, sess.sessionId)
     if (!hasAccess) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
 
     const body = await request.json()

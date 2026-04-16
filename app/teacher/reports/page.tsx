@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Select, Card, Tabs, LoadingSkeleton, EmptyState, Button } from "@/app/components/shared";
 import { DocumentChartBarIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import MonthlyReportView, { type MonthlyReportData } from "@/app/components/reports/MonthlyReportView";
 import ExamReportView, { type ExamReportData } from "@/app/components/reports/ExamReportView";
 import AnnualReportView, { type AnnualReportData } from "@/app/components/reports/AnnualReportView";
@@ -25,6 +26,7 @@ const MONTHS = [
 
 export default function TeacherReportsPage() {
   const now = new Date();
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
 
   const [activeTab, setActiveTab] = useState("monthly");
 
@@ -54,37 +56,41 @@ export default function TeacherReportsPage() {
   // Fetch teacher's classes + sessions on mount
   useEffect(() => {
     Promise.all([
-      fetch("/api/teacher/classes").then((r) => r.json()),
-      fetch("/api/sessions").then((r) => r.json()),
+      fetch(withSessionId("/api/teacher/classes")).then((r) => r.json()),
+      fetch(withSessionId("/api/sessions")).then((r) => r.json()),
     ])
       .then(([classJson, sessionJson]) => {
         if (classJson.data) setClassSections(classJson.data);
         if (sessionJson.data) {
           const sessionList: SessionOption[] = sessionJson.data;
           setSessions(sessionList);
-          const current = sessionList.find((s) => s.is_current);
-          if (current) setSessionId(String(current.id));
+          if (viewingSession) {
+            setSessionId(String(viewingSession.id));
+          } else {
+            const current = sessionList.find((s) => s.is_current);
+            if (current) setSessionId(String(current.id));
+          }
         }
       })
       .catch(() => {});
-  }, []);
+  }, [viewingSession?.id]);
 
   // Fetch students when class section changes
   useEffect(() => {
     if (!classSectionId) { setStudents([]); setStudentId(""); return; }
     setLoadingStudents(true);
     setStudentId("");
-    fetch(`/api/teacher/students?class_section_id=${classSectionId}`)
+    fetch(withSessionId(`/api/teacher/students?class_section_id=${classSectionId}`))
       .then((r) => r.json())
       .then((json) => { if (json.data) setStudents(json.data); })
       .catch(() => setStudents([]))
       .finally(() => setLoadingStudents(false));
-  }, [classSectionId]);
+  }, [classSectionId, viewingSession?.id]);
 
   // Fetch exams when class section changes
   useEffect(() => {
     if (!classSectionId) { setExams([]); setExamId(""); return; }
-    fetch(`/api/exams?class_section_id=${classSectionId}&limit=100`)
+    fetch(withSessionId(`/api/exams?class_section_id=${classSectionId}&limit=100`))
       .then((r) => r.json())
       .then((json) => {
         const completed = (json.data?.exams || []).filter((e: ExamOption) => e.status === "completed");
@@ -92,7 +98,7 @@ export default function TeacherReportsPage() {
         setExamId("");
       })
       .catch(() => setExams([]));
-  }, [classSectionId]);
+  }, [classSectionId, viewingSession?.id]);
 
   // Clear report data on filter change
   useEffect(() => {
@@ -123,7 +129,7 @@ export default function TeacherReportsPage() {
         url = `/api/reports/annual?student_id=${studentId}&session_id=${sessionId}`;
       }
 
-      const res = await fetch(url);
+      const res = await fetch(withSessionId(url));
       if (!res.ok) {
         const json = await res.json().catch(() => null);
         throw new Error(json?.error || "Failed to fetch report");
@@ -138,7 +144,7 @@ export default function TeacherReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, studentId, monthValue, yearValue, examId, sessionId]);
+  }, [activeTab, studentId, monthValue, yearValue, examId, sessionId, viewingSession?.id]);
 
   const downloadPdf = async () => {
     if (!studentId) return;
@@ -149,7 +155,7 @@ export default function TeacherReportsPage() {
       else if (activeTab === "exam") body.exam_id = Number(examId);
       else body.session_id = Number(sessionId);
 
-      const res = await fetch("/api/reports/pdf", {
+      const res = await fetch(withSessionId("/api/reports/pdf"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

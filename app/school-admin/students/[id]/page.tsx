@@ -14,6 +14,7 @@ import {
   Tabs,
   LoadingSkeleton,
 } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Student {
   id: string;
@@ -76,6 +77,7 @@ const TAB_LIST = [
 export default function StudentDetailPage() {
   const params = useParams();
   const studentId = params.id as string;
+  const { isViewingPastSession } = useViewingSession();
 
   const [student, setStudent] = useState<Student | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -165,6 +167,7 @@ export default function StudentDetailPage() {
 
   // Edit handlers
   function startEditing() {
+    if (isViewingPastSession) return;
     if (!student) return;
     setEditForm({
       first_name: student.first_name || "",
@@ -393,7 +396,7 @@ export default function StudentDetailPage() {
                   <h2 className="text-lg font-semibold text-primary-900">
                     Personal Information
                   </h2>
-                  <Button variant="outline" size="sm" onClick={startEditing}>
+                  <Button variant="outline" size="sm" onClick={startEditing} disabled={isViewingPastSession}>
                     Edit
                   </Button>
                 </div>
@@ -456,6 +459,7 @@ export default function StudentDetailPage() {
                       size="sm"
                       loading={saving}
                       onClick={handleSave}
+                      disabled={isViewingPastSession}
                     >
                       Save
                     </Button>
@@ -635,6 +639,7 @@ export default function StudentDetailPage() {
               variant="primary"
               size="sm"
               onClick={() => setShowEnrollModal(true)}
+              disabled={isViewingPastSession}
             >
               Add Enrollment
             </Button>
@@ -707,6 +712,7 @@ export default function StudentDetailPage() {
                   variant="primary"
                   loading={enrollSaving}
                   onClick={handleAddEnrollment}
+                  disabled={isViewingPastSession}
                 >
                   Add Enrollment
                 </Button>

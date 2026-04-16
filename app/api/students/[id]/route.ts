@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAuthContext, isAuthError } from "@/app/lib/auth-utils"
+import { getAuthContext, isAuthError, resolveSessionId, isSessionError } from "@/app/lib/auth-utils"
 import { executeQuery } from "@/app/lib/db"
 
 export async function GET(
@@ -12,6 +12,9 @@ export async function GET(
     const ctx = await getAuthContext(["school_admin"])
     if (isAuthError(ctx)) return ctx
 
+    const sess = await resolveSessionId(request, ctx.partnerUserId)
+    if (isSessionError(sess)) return sess
+
     const students = await executeQuery(
       `SELECT st.*, e.id as enrollment_id, e.class_section_id, e.roll_number, e.student_type, e.status as enrollment_status,
               c.name as class_name, sec.name as section_name, es.name as session_name
@@ -19,8 +22,7 @@ export async function GET(
        LEFT JOIN erp_student_enrollments e ON e.student_id = st.id
          AND e.class_section_id IN (
            SELECT ecs2.id FROM erp_class_sections ecs2
-           JOIN erp_sessions es2 ON es2.id = ecs2.session_id
-           WHERE es2.partner_id = ? AND es2.is_current = 1
+           WHERE ecs2.session_id = ?
          )
        LEFT JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
        LEFT JOIN erp_sessions es ON es.id = ecs.session_id
@@ -33,7 +35,7 @@ export async function GET(
            JOIN erp_sessions es3 ON es3.id = ecs3.session_id
            WHERE e2.student_id = st.id AND es3.partner_id = ?
          )`,
-      [ctx.partnerUserId, id, ctx.partnerUserId]
+      [sess.sessionId, id, ctx.partnerUserId]
     )
 
     if (students.length === 0) {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Select, Card, LoadingSkeleton } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Section { id: number; name: string; class_section_id: number | null }
 interface ClassData { id: number; name: string; sections: Section[] }
@@ -17,6 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function AdminMarksPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [csValue, setCsValue] = useState("");
   const [exams, setExams] = useState<Exam[]>([]);
@@ -36,18 +38,18 @@ export default function AdminMarksPage() {
   }
 
   useEffect(() => {
-    fetch("/api/classes").then((r) => r.json()).then((j) => { if (j.data) setClasses(j.data); }).catch(() => {});
-  }, []);
+    fetch(withSessionId("/api/classes")).then((r) => r.json()).then((j) => { if (j.data) setClasses(j.data); }).catch(() => {});
+  }, [viewingSession?.id]);
 
   // Fetch exams (only completed) when class changes
   useEffect(() => {
     if (!csValue) { setExams([]); setExamId(""); return; }
-    fetch(`/api/exams?class_section_id=${csValue}&limit=100`).then((r) => r.json()).then((j) => {
+    fetch(withSessionId(`/api/exams?class_section_id=${csValue}&limit=100`)).then((r) => r.json()).then((j) => {
       const completed = (j.data?.exams || []).filter((e: Exam) => e.status === "completed");
       setExams(completed);
       setExamId("");
     }).catch(() => {});
-  }, [csValue]);
+  }, [csValue, viewingSession?.id]);
 
   // Fetch overview when exam selected
   const fetchOverview = useCallback(async () => {
@@ -55,7 +57,7 @@ export default function AdminMarksPage() {
     setLoading(true);
     setSelectedExam(exams.find((e) => String(e.id) === examId) || null);
     try {
-      const res = await fetch(`/api/marks/overview?exam_id=${examId}`);
+      const res = await fetch(withSessionId(`/api/marks/overview?exam_id=${examId}`));
       if (res.ok) {
         const json = await res.json();
         setSubjects(json.data.subjects || []);
@@ -64,7 +66,7 @@ export default function AdminMarksPage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [examId, exams]);
+  }, [examId, exams, viewingSession?.id]);
 
   useEffect(() => { fetchOverview(); }, [fetchOverview]);
 

@@ -11,6 +11,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Card, StatsCard } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface UpcomingExam {
   id: number;
@@ -31,6 +32,7 @@ interface DashboardStats {
 }
 
 export default function SchoolAdminDashboardPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
@@ -43,7 +45,7 @@ export default function SchoolAdminDashboardPage() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch("/api/dashboard");
+        const res = await fetch(withSessionId("/api/dashboard"));
         const json = await res.json();
         if (json.data) {
           setStats(json.data);
@@ -55,7 +57,7 @@ export default function SchoolAdminDashboardPage() {
       }
     }
     fetchStats();
-  }, []);
+  }, [viewingSession?.id]);
 
   return (
     <div className="space-y-6">

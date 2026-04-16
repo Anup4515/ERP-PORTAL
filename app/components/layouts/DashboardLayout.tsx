@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/app/lib/utils";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import ReadOnlyBanner from "@/app/components/shared/ReadOnlyBanner";
 import {
   HomeIcon,
   UserGroupIcon,
@@ -95,6 +97,28 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sessionDropdownOpen, setSessionDropdownOpen] = useState(false);
+  const sessionDropdownRef = useRef<HTMLDivElement>(null);
+
+  const {
+    sessions,
+    viewingSession,
+    isViewingPastSession,
+    setViewingSessionId,
+  } = useViewingSession();
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (sessionDropdownRef.current && !sessionDropdownRef.current.contains(e.target as Node)) {
+        setSessionDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const currentSession = sessions.find((s) => s.is_current === 1);
 
   const navItems = role === "school_admin" ? schoolAdminNav : teacherNav;
   const roleLabel = role === "school_admin" ? "School Admin" : "Teacher";
@@ -270,14 +294,69 @@ export default function DashboardLayout({
               </button>
             </div>
 
-            {/* Right: settings + notification + avatar */}
+            {/* Right: session switcher + avatar */}
             <div className="flex items-center gap-3">
+              {/* Session switcher */}
+              {sessions.length > 1 && viewingSession && (
+                <div className="relative" ref={sessionDropdownRef}>
+                  <button
+                    onClick={() => setSessionDropdownOpen(!sessionDropdownOpen)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors cursor-pointer",
+                      isViewingPastSession
+                        ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                        : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                    )}
+                  >
+                    <CalendarDaysIcon className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">{viewingSession.name}</span>
+                    <svg className="h-3 w-3 opacity-50" fill="none" viewBox="0 0 12 12">
+                      <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  {sessionDropdownOpen && (
+                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                      <div className="px-3 py-1.5 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Academic Sessions
+                      </div>
+                      {sessions.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            setViewingSessionId(s.id);
+                            setSessionDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer",
+                            s.id === viewingSession.id
+                              ? "bg-primary-50 text-primary-700 font-medium"
+                              : "text-gray-700 hover:bg-gray-50"
+                          )}
+                        >
+                          {s.name}
+                          {s.is_current === 1 && (
+                            <span className="ml-2 text-xs text-green-600 font-medium">(Current)</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="w-9 h-9 rounded-full bg-primary-900 flex items-center justify-center text-white font-bold text-sm">
                 {initials}
               </div>
             </div>
           </div>
         </header>
+
+        {/* Read-only banner for past sessions */}
+        {isViewingPastSession && viewingSession && currentSession && (
+          <ReadOnlyBanner
+            sessionName={viewingSession.name}
+            onSwitchBack={() => setViewingSessionId(currentSession.id)}
+          />
+        )}
 
         {/* Page content */}
         <main className="p-4 sm:p-6 lg:p-8">{children}</main>

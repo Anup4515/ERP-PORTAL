@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, Button, Select, LoadingSkeleton, EmptyState } from "@/app/components/shared";
 import { SparklesIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface SubParameter { id: number; name: string }
 interface Student { enrollment_id: number; first_name: string; last_name: string; roll_number: number | null }
@@ -42,6 +43,7 @@ function ratingBg(val: number | null | undefined) {
 }
 
 export default function TeacherHolisticPage() {
+  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const [parameters, setParameters] = useState<Parameter[]>([]);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,8 +73,8 @@ export default function TeacherHolisticPage() {
   // Fetch parameters + classes
   useEffect(() => {
     Promise.all([
-      fetch("/api/holistic/parameters").then((r) => r.json()),
-      fetch("/api/teacher/classes").then((r) => r.json()),
+      fetch(withSessionId("/api/holistic/parameters")).then((r) => r.json()),
+      fetch(withSessionId("/api/teacher/classes")).then((r) => r.json()),
     ])
       .then(([paramJson, classJson]) => {
         if (paramJson.data) setParameters(paramJson.data);
@@ -80,7 +82,7 @@ export default function TeacherHolisticPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [viewingSession?.id]);
 
   const csGradeMap: Record<string, number | null> = {};
   const classSectionOptions = (() => {
@@ -115,7 +117,7 @@ export default function TeacherHolisticPage() {
     setBanner(null);
     try {
       const res = await fetch(
-        `/api/holistic/ratings?parameter_id=${parameterId}&class_section_id=${classSectionId}&month=${month}-01`
+        withSessionId(`/api/holistic/ratings?parameter_id=${parameterId}&class_section_id=${classSectionId}&month=${month}-01`)
       );
       if (!res.ok) {
         const json = await res.json();
@@ -144,7 +146,7 @@ export default function TeacherHolisticPage() {
     } finally {
       setGridLoading(false);
     }
-  }, [classSectionId, parameterId, month]);
+  }, [classSectionId, parameterId, month, viewingSession?.id]);
 
   useEffect(() => {
     if (classSectionId && parameterId) fetchRatings();
@@ -177,7 +179,7 @@ export default function TeacherHolisticPage() {
     const prevMonth = shiftMonth(month, -1);
     try {
       const res = await fetch(
-        `/api/holistic/ratings?parameter_id=${parameterId}&class_section_id=${classSectionId}&month=${prevMonth}-01`
+        withSessionId(`/api/holistic/ratings?parameter_id=${parameterId}&class_section_id=${classSectionId}&month=${prevMonth}-01`)
       );
       const json = await res.json();
       if (json.data?.ratings) {
@@ -216,7 +218,7 @@ export default function TeacherHolisticPage() {
     }
 
     try {
-      const res = await fetch("/api/holistic/ratings/bulk", {
+      const res = await fetch(withSessionId("/api/holistic/ratings/bulk"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -330,9 +332,9 @@ export default function TeacherHolisticPage() {
         <>
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={handleSetDefault}>Set Default (5)</Button>
-            <Button variant="outline" size="sm" onClick={handleCopyPrev}>Copy from Previous Month</Button>
-            <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>Save Ratings</Button>
+            <Button variant="outline" size="sm" onClick={handleSetDefault} disabled={isViewingPastSession}>Set Default (5)</Button>
+            <Button variant="outline" size="sm" onClick={handleCopyPrev} disabled={isViewingPastSession}>Copy from Previous Month</Button>
+            <Button variant="primary" size="sm" loading={saving} onClick={handleSave} disabled={isViewingPastSession}>Save Ratings</Button>
           </div>
 
           {/* Rating grid */}

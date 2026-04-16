@@ -3,12 +3,14 @@
 import { Card } from "@/app/components/shared";
 import {
   AcademicCapIcon,
+  ArrowPathIcon,
   CalendarDaysIcon,
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
   ClockIcon,
   Cog6ToothIcon,
   DocumentTextIcon,
+  EyeIcon,
   SparklesIcon,
   UserGroupIcon,
   UsersIcon,
@@ -212,6 +214,32 @@ export default function InstructionsPage() {
             "Teachers rate students from their dashboard — the ratings feed into report cards",
           ]}
         />
+        <Step
+          number={11}
+          title="Session Transition"
+          icon={<ArrowPathIcon className="w-5 h-5" />}
+          description="At the end of an academic year, transition to the new session from Settings → Sessions → Session Transition."
+          items={[
+            "The wizard copies your class structure, subjects, teacher assignments, and grading scheme to the new session",
+            "Promote students class-by-class — select Promoted, Detained, or Graduated per student",
+            "Detained students are re-enrolled in the same class as repeaters",
+            "Old enrollments are marked as completed and linked to new ones for history tracking",
+            "The new session becomes active and a calendar is auto-generated",
+          ]}
+        />
+
+        <Step
+          number={12}
+          title="View Past Session Data"
+          icon={<EyeIcon className="w-5 h-5" />}
+          description="Use the session switcher in the top-right corner to view data from previous academic years."
+          items={[
+            "Select any past session from the dropdown — all pages will show that session's data",
+            "A yellow banner confirms you are in read-only mode",
+            "All add, edit, and delete actions are disabled for past sessions",
+            "Click 'Switch to current' on the banner to return to the active session",
+          ]}
+        />
       </div>
 
       {/* Tips */}
@@ -251,6 +279,14 @@ export default function InstructionsPage() {
           <li className="flex items-start gap-2 text-sm text-yellow-800">
             <span className="mt-0.5">&#9670;</span>
             Set grade_level on classes (in Settings → Classes) so holistic parameters are correctly filtered by stage
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            Use Session Transition at year-end instead of manually recreating classes and re-enrolling students
+          </li>
+          <li className="flex items-start gap-2 text-sm text-yellow-800">
+            <span className="mt-0.5">&#9670;</span>
+            Past session data is always accessible via the session switcher — nothing is deleted
           </li>
         </ul>
       </Card>

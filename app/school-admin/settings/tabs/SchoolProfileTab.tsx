@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, Input, Button, LoadingSkeleton } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Partner {
   partner_name: string;
@@ -36,6 +37,7 @@ const initialFormState: Partner = {
 };
 
 export default function SchoolProfileTab() {
+  const { isViewingPastSession } = useViewingSession();
   const [form, setForm] = useState<Partner>(initialFormState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -266,7 +268,7 @@ export default function SchoolProfileTab() {
         </div>
 
         <div className="mt-6 flex justify-end">
-          <Button type="submit" variant="primary" loading={saving}>
+          <Button type="submit" variant="primary" loading={saving} disabled={isViewingPastSession}>
             Save Changes
           </Button>
         </div>

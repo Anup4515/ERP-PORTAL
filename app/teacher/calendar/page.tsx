@@ -111,6 +111,12 @@ export default function TeacherCalendarPage() {
         </Button>
       </div>
 
+      {!loading && !hasData && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+          No calendar data for {MONTHS[month]} {year}.
+        </div>
+      )}
+
       {loading ? (
         <div className="animate-pulse h-96 bg-gray-100 rounded-xl" />
       ) : (
@@ -143,12 +149,6 @@ export default function TeacherCalendarPage() {
             })}
           </div>
         </Card>
-      )}
-
-      {!loading && !hasData && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
-          No calendar data for {MONTHS[month]} {year}.
-        </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

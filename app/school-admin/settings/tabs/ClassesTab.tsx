@@ -8,6 +8,7 @@ import Modal from "@/app/components/shared/Modal";
 import Badge from "@/app/components/shared/Badge";
 import EmptyState from "@/app/components/shared/EmptyState";
 import LoadingSkeleton from "@/app/components/shared/LoadingSkeleton";
+import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface Section {
@@ -68,6 +69,17 @@ export default function ClassesTab() {
   });
   const [addSectionLoading, setAddSectionLoading] = useState(false);
   const [addSectionError, setAddSectionError] = useState<string | null>(null);
+
+  // Edit Class modal
+  const [editingClass, setEditingClass] = useState<ClassWithSections | null>(null);
+  const [editClassForm, setEditClassForm] = useState<AddClassForm>({
+    name: "",
+    code: "",
+    grade_level: "",
+    sections: "",
+  });
+  const [editClassLoading, setEditClassLoading] = useState(false);
+  const [editClassError, setEditClassError] = useState<string | null>(null);
 
   const fetchClasses = useCallback(async () => {
     try {
@@ -140,6 +152,49 @@ export default function ClassesTab() {
     setAddSectionForm({ name: "", room_no: "" });
     setAddSectionError(null);
     setShowAddSection(true);
+  };
+
+  const openEditClass = (cls: ClassWithSections) => {
+    if (isViewingPastSession) return;
+    setEditingClass(cls);
+    setEditClassForm({
+      name: cls.name,
+      code: cls.code || "",
+      grade_level: cls.grade_level != null ? String(cls.grade_level) : "",
+      sections: "",
+    });
+    setEditClassError(null);
+  };
+
+  const handleEditClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClass || !editClassForm.name.trim()) return;
+
+    setEditClassLoading(true);
+    setEditClassError(null);
+    try {
+      const body: Record<string, unknown> = { name: editClassForm.name.trim() };
+      body.code = editClassForm.code.trim() || null;
+      body.grade_level = editClassForm.grade_level.trim()
+        ? parseInt(editClassForm.grade_level, 10)
+        : null;
+
+      const res = await fetch(withSessionId(`/api/classes/${editingClass.id}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to update class");
+      }
+      setEditingClass(null);
+      await fetchClasses();
+    } catch (err) {
+      setEditClassError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setEditClassLoading(false);
+    }
   };
 
   const handleAddSection = async (e: React.FormEvent) => {
@@ -235,21 +290,35 @@ export default function ClassesTab() {
             <Card key={cls.id} padding="none" className="flex flex-col">
               {/* Card Header */}
               <div className="px-5 py-4 border-b border-gray-100">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-base font-semibold text-gray-900">
-                    {cls.name}
-                  </h4>
-                  {cls.code && (
-                    <Badge variant="info" size="sm">
-                      {cls.code}
-                    </Badge>
-                  )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-base font-semibold text-gray-900">
+                        {cls.name}
+                      </h4>
+                      {cls.code && (
+                        <Badge variant="info" size="sm">
+                          {cls.code}
+                        </Badge>
+                      )}
+                    </div>
+                    {cls.grade_level !== null && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Grade Level: {cls.grade_level}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => openEditClass(cls)}
+                      disabled={isViewingPastSession}
+                      className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Edit class"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                {cls.grade_level !== null && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Grade Level: {cls.grade_level}
-                  </p>
-                )}
               </div>
 
               {/* Card Body - Sections */}
@@ -404,6 +473,68 @@ export default function ClassesTab() {
           </div>
         </form>
       </Modal>
+
+      {/* Edit Class Modal */}
+      <Modal
+        isOpen={editingClass !== null}
+        onClose={() => {
+          setEditingClass(null);
+          setEditClassError(null);
+        }}
+        title="Edit Class"
+        size="md"
+      >
+        <form onSubmit={handleEditClass} className="space-y-4">
+          <Input
+            label="Class Name"
+            placeholder="e.g. Class 1, Grade 10"
+            value={editClassForm.name}
+            onChange={(e) =>
+              setEditClassForm((f) => ({ ...f, name: e.target.value }))
+            }
+            required
+          />
+
+          <Input
+            label="Code"
+            placeholder="e.g. C1, G10 (optional)"
+            value={editClassForm.code}
+            onChange={(e) =>
+              setEditClassForm((f) => ({ ...f, code: e.target.value }))
+            }
+          />
+
+          <Input
+            label="Grade Level"
+            type="number"
+            placeholder="e.g. 1, 10 (optional)"
+            value={editClassForm.grade_level}
+            onChange={(e) =>
+              setEditClassForm((f) => ({ ...f, grade_level: e.target.value }))
+            }
+          />
+
+          {editClassError && (
+            <p className="text-sm text-red-600">{editClassError}</p>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditingClass(null);
+                setEditClassError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" loading={editClassLoading}>
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
     </div>
   );
 }

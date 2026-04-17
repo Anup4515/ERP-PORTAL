@@ -51,33 +51,3 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params
-
-    const ctx = await getAuthContext(["school_admin"])
-    if (isAuthError(ctx)) return ctx
-
-    // Verify subject belongs to this partner
-    const ownershipCheck = await executeQuery<{ id: number }[]>(
-      `SELECT s.id FROM erp_subjects s
-       JOIN erp_class_sections ecs ON ecs.id = s.class_section_id
-       JOIN erp_sessions es ON es.id = ecs.session_id
-       WHERE s.id = ? AND es.partner_id = ?`,
-      [id, ctx.partnerUserId]
-    )
-    if (ownershipCheck.length === 0) {
-      return NextResponse.json({ error: "Subject not found" }, { status: 404 })
-    }
-
-    await executeQuery("DELETE FROM erp_subjects WHERE id = ?", [id])
-
-    return NextResponse.json({ message: "Subject deleted successfully" })
-  } catch (error) {
-    console.error("Subjects DELETE error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}

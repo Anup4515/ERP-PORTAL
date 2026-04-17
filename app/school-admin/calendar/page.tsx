@@ -335,6 +335,14 @@ export default function CalendarPage() {
             </div>
           )}
 
+          {/* No data warning */}
+          {!calendarLoading && !hasCalendarData && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+              No calendar data for {MONTHS[month]} {year}. This month may not be
+              within the session date range.
+            </div>
+          )}
+
           {/* Calendar grid */}
           {calendarLoading ? (
             <div className="animate-pulse h-96 bg-gray-100 rounded-xl" />
@@ -400,14 +408,6 @@ export default function CalendarPage() {
                 )}
               </div>
             </Card>
-          )}
-
-          {/* No data warning */}
-          {!calendarLoading && !hasCalendarData && (
-            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
-              No calendar data for {MONTHS[month]} {year}. This month may not be
-              within the session date range.
-            </div>
           )}
 
           {/* Summary stats */}

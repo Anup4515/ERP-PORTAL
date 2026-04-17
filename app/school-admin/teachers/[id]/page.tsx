@@ -117,6 +117,53 @@ export default function TeacherDetailPage() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
+  // Password reset modal
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const openPasswordModal = () => {
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setShowPasswordModal(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+    setPasswordError(null);
+    setPasswordSaving(true);
+    try {
+      const res = await fetch(`/api/teachers/${teacherId}/password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error || "Failed to reset password");
+      }
+      setPasswordSuccess("Password reset successfully");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   const fetchTeacher = useCallback(async () => {
     try {
       const res = await fetch(`/api/teachers/${teacherId}`);
@@ -485,14 +532,19 @@ export default function TeacherDetailPage() {
             Teacher Profile
           </h2>
           {!isEditing ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-            >
-              <PencilSquareIcon className="h-4 w-4" />
-              Edit
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={openPasswordModal}>
+                Reset Password
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+              >
+                <PencilSquareIcon className="h-4 w-4" />
+                Edit
+              </Button>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -925,6 +977,52 @@ export default function TeacherDetailPage() {
               onClick={handleSaveSubjectAssignment}
             >
               Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reset Password Modal */}
+      <Modal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        title="Reset Password"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Set a new password for this teacher.
+          </p>
+          <Input
+            label="New Password"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Minimum 6 characters"
+          />
+          <Input
+            label="Confirm Password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter password"
+          />
+          {passwordError && (
+            <p className="text-sm text-red-600">{passwordError}</p>
+          )}
+          {passwordSuccess && (
+            <p className="text-sm text-green-600">{passwordSuccess}</p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setShowPasswordModal(false)}>
+              Close
+            </Button>
+            <Button
+              variant="primary"
+              loading={passwordSaving}
+              onClick={handleResetPassword}
+            >
+              Reset Password
             </Button>
           </div>
         </div>

@@ -8,7 +8,6 @@ import {
   Select,
   Modal,
   DataTable,
-  ConfirmDialog,
   EmptyState,
   LoadingSkeleton,
 } from "@/app/components/shared";
@@ -69,9 +68,6 @@ export default function SubjectsTab() {
 
   // Multi-class selection for adding subjects
   const [selectedCsIds, setSelectedCsIds] = useState<Set<number>>(new Set());
-
-  const [deleteTarget, setDeleteTarget] = useState<Subject | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const [banner, setBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -273,42 +269,10 @@ export default function SubjectsTab() {
     }
   }
 
-  async function handleDelete() {
-    if (!deleteTarget) return;
-
-    try {
-      setDeleting(true);
-      setBanner(null);
-
-      const res = await fetch(withSessionId(`/api/subjects/${deleteTarget.id}`), {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        throw new Error(json?.error || "Failed to delete subject");
-      }
-
-      setBanner({ type: "success", message: "Subject deleted successfully." });
-      setDeleteTarget(null);
-      fetchSubjects(selectedClassSectionId);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to delete subject.";
-      setBanner({ type: "error", message });
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   // DataTable columns
   const columns = [
     { key: "name", label: "Name" },
     { key: "code", label: "Code", render: (row: Record<string, unknown>) => (row.code as string) || "-" },
-    {
-      key: "teacher_name",
-      label: "Teacher",
-      render: (row: Record<string, unknown>) => (row.teacher_name as string) || "-",
-    },
     {
       key: "sort_order",
       label: "Sort Order",
@@ -326,14 +290,6 @@ export default function SubjectsTab() {
             disabled={isViewingPastSession}
           >
             Edit
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => setDeleteTarget(row as unknown as Subject)}
-            disabled={isViewingPastSession}
-          >
-            Delete
           </Button>
         </div>
       ),
@@ -487,16 +443,6 @@ export default function SubjectsTab() {
         </div>
       </Modal>
 
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Delete Subject"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
-        confirmLabel={deleting ? "Deleting..." : "Delete"}
-        variant="danger"
-      />
     </div>
   );
 }

@@ -46,16 +46,23 @@ export async function POST(request: Request) {
     if (isAuthError(ctx)) return ctx
 
     const body = await request.json()
-    const { name, designation, department, phone, email, qualification, experience, address } = body
+    const { name, designation, department, phone, email, qualification, experience, address, date_of_joining } = body
 
     if (!name || !designation) {
       return NextResponse.json({ error: "Name and designation are required" }, { status: 400 })
     }
 
+    if (date_of_joining) {
+      const doj = new Date(date_of_joining)
+      if (isNaN(doj.getTime()) || doj > new Date()) {
+        return NextResponse.json({ error: "Date of joining cannot be in the future" }, { status: 400 })
+      }
+    }
+
     const result = await executeQuery<{ insertId: number }>(
-      `INSERT INTO partner_staff (partner_id, name, designation, department, phone, email, qualification, experience, address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [ctx.partnerUserId, name, designation, department || null, phone || null, email || null, qualification || null, experience || null, address || null]
+      `INSERT INTO partner_staff (partner_id, name, designation, department, phone, email, qualification, experience, address, date_of_joining)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [ctx.partnerUserId, name, designation, department || null, phone || null, email || null, qualification || null, experience || null, address || null, date_of_joining || null]
     )
 
     return NextResponse.json(

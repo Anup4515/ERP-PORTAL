@@ -29,6 +29,7 @@ interface Staff {
   qualification: string | null;
   experience: number | null;
   address: string | null;
+  date_of_joining: string | null;
   status: string;
 }
 
@@ -50,9 +51,29 @@ const emptyForm = {
   phone: "",
   email: "",
   qualification: "",
-  experience: "",
   address: "",
+  date_of_joining: "",
 };
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+function formatExperience(dateOfJoining: string | null): string {
+  if (!dateOfJoining) return "-";
+  const doj = new Date(dateOfJoining);
+  if (isNaN(doj.getTime())) return "-";
+  const now = new Date();
+  if (doj > now) return "-";
+  const totalMs = now.getTime() - doj.getTime();
+  const years = Math.floor(totalMs / (1000 * 60 * 60 * 24 * 365.25));
+  const months = Math.floor(((totalMs) / (1000 * 60 * 60 * 24 * 30.44)) % 12);
+  if (years === 0 && months === 0) return "-";
+  if (years > 0) {
+    return `${years} year${years > 1 ? "s" : ""}${
+      months > 0 ? ` ${months} month${months > 1 ? "s" : ""}` : ""
+    }`;
+  }
+  return `${months} month${months !== 1 ? "s" : ""}`;
+}
 
 export default function StaffPage() {
   const { isViewingPastSession } = useViewingSession();
@@ -101,16 +122,39 @@ export default function StaffPage() {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    if (formErrors[e.target.name]) {
-      setFormErrors((prev) => ({ ...prev, [e.target.name]: "" }));
+    const { name, value } = e.target;
+    let nextValue = value;
+    if (name === "phone") {
+      nextValue = value.replace(/\D/g, "").slice(0, 10);
+    }
+    setForm((prev) => ({ ...prev, [name]: nextValue }));
+    if (formErrors[name]) {
+      setFormErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validate = () => {
     const errors: Record<string, string> = {};
-    if (!form.name.trim()) errors.name = "Name is required";
+    if (!form.name.trim()) {
+      errors.name = "Name is required";
+    } else if (form.name.trim().length < 2) {
+      errors.name = "Name must be at least 2 characters";
+    }
     if (!form.designation) errors.designation = "Designation is required";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      errors.email = "Enter a valid email address";
+    }
+    if (form.phone.trim() && !/^\d{10}$/.test(form.phone.trim())) {
+      errors.phone = "Phone number must be exactly 10 digits";
+    }
+    if (form.date_of_joining) {
+      const doj = new Date(form.date_of_joining);
+      if (isNaN(doj.getTime())) {
+        errors.date_of_joining = "Invalid date";
+      } else if (doj > new Date()) {
+        errors.date_of_joining = "Date of joining cannot be in the future";
+      }
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -127,8 +171,8 @@ export default function StaffPage() {
       if (form.phone) body.phone = form.phone;
       if (form.email) body.email = form.email;
       if (form.qualification) body.qualification = form.qualification;
-      if (form.experience) body.experience = Number(form.experience);
       if (form.address) body.address = form.address;
+      if (form.date_of_joining) body.date_of_joining = form.date_of_joining;
 
       const res = await fetch("/api/staff", {
         method: "POST",
@@ -156,8 +200,8 @@ export default function StaffPage() {
       phone: s.phone || "",
       email: s.email || "",
       qualification: s.qualification || "",
-      experience: s.experience != null ? String(s.experience) : "",
       address: s.address || "",
+      date_of_joining: s.date_of_joining ? s.date_of_joining.slice(0, 10) : "",
     });
     setFormErrors({});
     setShowEditModal(true);
@@ -174,8 +218,8 @@ export default function StaffPage() {
         phone: form.phone || null,
         email: form.email || null,
         qualification: form.qualification || null,
-        experience: form.experience ? Number(form.experience) : null,
         address: form.address || null,
+        date_of_joining: form.date_of_joining || null,
       };
 
       const res = await fetch(`/api/staff/${selectedStaff.id}`, {
@@ -237,9 +281,13 @@ export default function StaffPage() {
         <Input
           label="Phone"
           name="phone"
+          type="tel"
+          inputMode="numeric"
           value={form.phone}
           onChange={handleChange}
-          placeholder="Phone number"
+          placeholder="10-digit phone number"
+          maxLength={10}
+          error={formErrors.phone}
         />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -250,6 +298,7 @@ export default function StaffPage() {
           value={form.email}
           onChange={handleChange}
           placeholder="email@example.com"
+          error={formErrors.email}
         />
         <Input
           label="Qualification"
@@ -259,27 +308,39 @@ export default function StaffPage() {
           placeholder="e.g. M.Sc, B.Ed"
         />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
         <Input
-          label="Experience (years)"
-          name="experience"
-          type="number"
-          value={form.experience}
+          label="Date of Joining"
+          name="date_of_joining"
+          type="date"
+          value={form.date_of_joining}
           onChange={handleChange}
+          max={todayISO()}
+          error={formErrors.date_of_joining}
         />
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1.5">
-            Address
-          </label>
-          <textarea
-            name="address"
-            value={form.address}
-            onChange={handleChange}
-            rows={2}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            placeholder="Address"
-          />
-        </div>
+        {form.date_of_joining &&
+          !formErrors.date_of_joining &&
+          new Date(form.date_of_joining) <= new Date() && (
+            <p className="text-xs text-gray-500 mt-1">
+              Experience:{" "}
+              <span className="font-medium text-primary-700">
+                {formatExperience(form.date_of_joining)}
+              </span>
+            </p>
+          )}
+      </div>
+      <div>
+        <label className="text-sm font-medium text-gray-700 block mb-1.5">
+          Address
+        </label>
+        <textarea
+          name="address"
+          value={form.address}
+          onChange={handleChange}
+          rows={2}
+          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          placeholder="Address"
+        />
       </div>
       <div className="flex justify-end gap-2 pt-2">
         <Button
@@ -399,6 +460,9 @@ export default function StaffPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
                     Qualification
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                    Experience
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
                     Actions
                   </th>
@@ -428,6 +492,9 @@ export default function StaffPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       {s.qualification || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {formatExperience(s.date_of_joining)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">

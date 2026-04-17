@@ -24,9 +24,16 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const allowed = ["name", "designation", "department", "phone", "email", "qualification", "experience", "address", "status"]
+    const allowed = ["name", "designation", "department", "phone", "email", "qualification", "experience", "address", "status", "date_of_joining"]
     const updates: string[] = []
     const values: any[] = []
+
+    if (body.date_of_joining) {
+      const doj = new Date(body.date_of_joining)
+      if (isNaN(doj.getTime()) || doj > new Date()) {
+        return NextResponse.json({ error: "Date of joining cannot be in the future" }, { status: 400 })
+      }
+    }
 
     for (const key of allowed) {
       if (body[key] !== undefined) {

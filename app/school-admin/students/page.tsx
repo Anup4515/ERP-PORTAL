@@ -295,7 +295,9 @@ export default function StudentsPage() {
     if (form.phone.trim() && !/^\d{10}$/.test(form.phone.trim())) {
       errors.phone = "Phone number must be exactly 10 digits";
     }
-    if (form.roll_number.trim() && !/^\d+$/.test(form.roll_number.trim())) {
+    if (!form.roll_number.trim()) {
+      errors.roll_number = "Roll number is required";
+    } else if (!/^\d+$/.test(form.roll_number.trim())) {
       errors.roll_number = "Roll number must be numeric";
     }
     if (form.date_of_birth) {
@@ -556,15 +558,18 @@ export default function StudentsPage() {
             <Input
               label="Phone"
               name="phone"
+              type="tel"
+              inputMode="numeric"
               value={form.phone}
-              onChange={(e) => updateForm("phone", e.target.value)}
+              onChange={(e) => updateForm("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
               placeholder="10-digit phone number"
               maxLength={10}
               error={formErrors.phone}
             />
             <Input
-              label="Roll Number"
+              label="Roll Number *"
               name="roll_number"
+              inputMode="numeric"
               value={form.roll_number}
               onChange={(e) => updateForm("roll_number", e.target.value)}
               error={formErrors.roll_number}

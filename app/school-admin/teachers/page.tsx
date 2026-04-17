@@ -99,7 +99,9 @@ export default function TeachersListPage() {
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const nextValue =
+      name === "phone_number" ? value.replace(/\D/g, "").slice(0, 10) : value;
+    setForm((prev) => ({ ...prev, [name]: nextValue }));
     if (formErrors[name as keyof TeacherForm]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -226,7 +228,7 @@ export default function TeachersListPage() {
         const years = Math.floor(totalMonths / 12);
         const months = totalMonths % 12;
         if (years > 0) return `${years} yr${years > 1 ? "s" : ""}${months > 0 ? ` ${months} mo` : ""}`;
-        return months > 0 ? `${months} mo` : "< 1 mo";
+        return months > 0 ? `${months} mo` : "-";
       },
     },
     {
@@ -285,6 +287,8 @@ export default function TeachersListPage() {
       <Input
         label="Phone Number"
         name="phone_number"
+        type="tel"
+        inputMode="numeric"
         value={form.phone_number}
         onChange={handleFormChange}
         placeholder="10-digit phone number"
@@ -311,6 +315,7 @@ export default function TeachersListPage() {
         type="date"
         value={form.date_of_joining}
         onChange={handleFormChange}
+        max={new Date().toISOString().slice(0, 10)}
         error={formErrors.date_of_joining}
       />
       {form.date_of_joining && new Date(form.date_of_joining) <= new Date() && (
@@ -324,7 +329,7 @@ export default function TeachersListPage() {
               if (years > 0) return `${years} year${years > 1 ? "s" : ""}${months > 0 ? ` ${months} month${months > 1 ? "s" : ""}` : ""}`;
               return `${months} month${months !== 1 ? "s" : ""}`;
             })()}
-          </span> (auto-calculated)
+          </span> 
         </p>
       )}
       <div className="flex items-center justify-end gap-3 pt-2">

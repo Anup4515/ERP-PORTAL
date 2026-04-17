@@ -503,8 +503,10 @@ export default function StudentDetailPage() {
                       <Input
                         label="Phone"
                         name="phone"
+                        type="tel"
+                        inputMode="numeric"
                         value={(editForm.phone as string) || ""}
-                        onChange={(e) => updateEditForm("phone", e.target.value)}
+                        onChange={(e) => updateEditForm("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
                         placeholder="10-digit phone number"
                         maxLength={10}
                         error={editErrors.phone}
@@ -576,8 +578,10 @@ export default function StudentDetailPage() {
                       <Input
                         label="Guardian Phone"
                         name="guardian_phone"
+                        type="tel"
+                        inputMode="numeric"
                         value={(editForm.guardian_phone as string) || ""}
-                        onChange={(e) => updateEditForm("guardian_phone", e.target.value)}
+                        onChange={(e) => updateEditForm("guardian_phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
                         placeholder="10-digit phone number"
                         maxLength={10}
                         error={editErrors.guardian_phone}

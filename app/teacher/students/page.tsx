@@ -145,12 +145,25 @@ function TeacherStudentsPage() {
 
   // Add student
   const handleAddChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setAddForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    const phoneFields = ["phone", "guardian_phone", "alternate_phone"];
+    const nextValue = phoneFields.includes(name)
+      ? value.replace(/\D/g, "").slice(0, 10)
+      : value;
+    setAddForm((prev) => ({ ...prev, [name]: nextValue }));
   };
 
   const handleAddStudent = async () => {
     if (!addForm.first_name || !addForm.last_name || !addForm.email) {
       setAddError("First name, last name, and email are required.");
+      return;
+    }
+    if (!addForm.roll_number.trim()) {
+      setAddError("Roll number is required.");
+      return;
+    }
+    if (!/^\d+$/.test(addForm.roll_number.trim())) {
+      setAddError("Roll number must be numeric.");
       return;
     }
     setAddSaving(true);
@@ -218,7 +231,12 @@ function TeacherStudentsPage() {
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    const phoneFields = ["phone", "guardian_phone", "alternate_phone"];
+    const nextValue = phoneFields.includes(name)
+      ? value.replace(/\D/g, "").slice(0, 10)
+      : value;
+    setEditForm((prev) => ({ ...prev, [name]: nextValue }));
   };
 
   const handleEditSave = async () => {
@@ -366,7 +384,7 @@ function TeacherStudentsPage() {
             <Input label="First Name *" name="first_name" value={addForm.first_name} onChange={handleAddChange} />
             <Input label="Last Name *" name="last_name" value={addForm.last_name} onChange={handleAddChange} />
             <Input label="Email *" name="email" type="email" value={addForm.email} onChange={handleAddChange} />
-            <Input label="Phone" name="phone" value={addForm.phone} onChange={handleAddChange} />
+            <Input label="Phone" name="phone" type="tel" inputMode="numeric" maxLength={10} value={addForm.phone} onChange={handleAddChange} placeholder="10-digit phone number" />
             <Select
               label="Gender"
               name="gender"
@@ -380,7 +398,7 @@ function TeacherStudentsPage() {
               ]}
             />
             <Input label="Date of Birth" name="date_of_birth" type="date" value={addForm.date_of_birth} onChange={handleAddChange} />
-            <Input label="Roll Number" name="roll_number" type="number" value={addForm.roll_number} onChange={handleAddChange} />
+            <Input label="Roll Number *" name="roll_number" type="number" value={addForm.roll_number} onChange={handleAddChange} />
           </div>
           <h3 className="text-sm font-semibold text-gray-700 pt-2">
             Parent / Guardian Details
@@ -389,7 +407,7 @@ function TeacherStudentsPage() {
             <Input label="Father's Name" name="father_name" value={addForm.father_name} onChange={handleAddChange} />
             <Input label="Mother's Name" name="mother_name" value={addForm.mother_name} onChange={handleAddChange} />
             <Input label="Guardian Name" name="guardian_name" value={addForm.guardian_name} onChange={handleAddChange} />
-            <Input label="Guardian Phone" name="guardian_phone" value={addForm.guardian_phone} onChange={handleAddChange} />
+            <Input label="Guardian Phone" name="guardian_phone" type="tel" inputMode="numeric" maxLength={10} value={addForm.guardian_phone} onChange={handleAddChange} placeholder="10-digit phone number" />
             <Input label="Guardian Email" name="guardian_email" type="email" value={addForm.guardian_email} onChange={handleAddChange} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -442,8 +460,8 @@ function TeacherStudentsPage() {
                 ]}
               />
               <Input label="Date of Birth" name="date_of_birth" type="date" value={editForm.date_of_birth} onChange={handleEditChange} />
-              <Input label="Phone" name="phone" value={editForm.phone} onChange={handleEditChange} />
-              <Input label="Alternate Phone" name="alternate_phone" value={editForm.alternate_phone} onChange={handleEditChange} />
+              <Input label="Phone" name="phone" type="tel" inputMode="numeric" maxLength={10} value={editForm.phone} onChange={handleEditChange} placeholder="10-digit phone number" />
+              <Input label="Alternate Phone" name="alternate_phone" type="tel" inputMode="numeric" maxLength={10} value={editForm.alternate_phone} onChange={handleEditChange} placeholder="10-digit phone number" />
             </div>
 
             <h3 className="text-sm font-semibold text-gray-700 pt-2">
@@ -465,7 +483,7 @@ function TeacherStudentsPage() {
               <Input label="Father's Name" name="father_name" value={editForm.father_name} onChange={handleEditChange} />
               <Input label="Mother's Name" name="mother_name" value={editForm.mother_name} onChange={handleEditChange} />
               <Input label="Guardian Name" name="guardian_name" value={editForm.guardian_name} onChange={handleEditChange} />
-              <Input label="Guardian Phone" name="guardian_phone" value={editForm.guardian_phone} onChange={handleEditChange} />
+              <Input label="Guardian Phone" name="guardian_phone" type="tel" inputMode="numeric" maxLength={10} value={editForm.guardian_phone} onChange={handleEditChange} placeholder="10-digit phone number" />
               <Input label="Guardian Email" name="guardian_email" type="email" value={editForm.guardian_email} onChange={handleEditChange} />
             </div>
 

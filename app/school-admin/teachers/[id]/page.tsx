@@ -167,7 +167,9 @@ export default function TeacherDetailPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const nextValue =
+      name === "phone_number" ? value.replace(/\D/g, "").slice(0, 10) : value;
+    setForm((prev) => ({ ...prev, [name]: nextValue }));
     if (formErrors[name]) {
       setFormErrors((prev) => {
         const next = { ...prev };
@@ -526,6 +528,8 @@ export default function TeacherDetailPage() {
             <Input
               label="Phone Number"
               name="phone_number"
+              type="tel"
+              inputMode="numeric"
               value={form.phone_number}
               onChange={handleFormChange}
               placeholder="10-digit phone number"
@@ -551,6 +555,7 @@ export default function TeacherDetailPage() {
                 type="date"
                 value={form.date_of_joining}
                 onChange={handleFormChange}
+                max={new Date().toISOString().slice(0, 10)}
                 error={formErrors.date_of_joining}
               />
               {form.date_of_joining && new Date(form.date_of_joining) <= new Date() && (

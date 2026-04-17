@@ -60,11 +60,11 @@ export async function GET(request: Request) {
         classSlots = await executeQuery(
           `SELECT ts.day_of_week, ts.period_number, ts.room_number,
                   sub.name as subject_name,
-                  u.name as teacher_name
+                  COALESCE(u.name, ps.name) as teacher_name
            FROM erp_timetable_slots ts
            LEFT JOIN erp_subjects sub ON sub.id = ts.subject_id
-           LEFT JOIN teachers t ON t.id = ts.teacher_id
-           LEFT JOIN users u ON u.id = t.user_id
+           LEFT JOIN users u ON u.id = ts.teacher_id
+           LEFT JOIN partner_staff ps ON ps.id = ts.staff_id
            WHERE ts.class_section_id = ?
            ORDER BY FIELD(ts.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'), ts.period_number`,
           [classSectionId]

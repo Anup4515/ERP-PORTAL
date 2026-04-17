@@ -9,7 +9,13 @@ export async function GET() {
     if (isAuthError(ctx)) return ctx
 
     const sessions = await executeQuery(
-      "SELECT * FROM erp_sessions WHERE partner_id = ? ORDER BY start_date DESC",
+      `SELECT id, partner_id, name,
+              DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
+              DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
+              is_current, created_at, updated_at
+         FROM erp_sessions
+        WHERE partner_id = ?
+        ORDER BY start_date DESC`,
       [ctx.partnerUserId]
     )
 

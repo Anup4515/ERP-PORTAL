@@ -55,8 +55,62 @@ function TeacherAttendancePage() {
 
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [selectedCs, setSelectedCs] = useState(preselected);
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+
+  // Session date boundaries — attendance can only be marked within this window.
+  // Extract Y/M/D from the first "YYYY-MM-DD" in the raw value and build a
+  // local-midnight Date, so server/client TZ differences can't shift months.
+  const parseSessionDate = (raw: string | null | undefined): Date | null => {
+    if (!raw) return null;
+    const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  };
+  const sessionStart = parseSessionDate(viewingSession?.start_date);
+  const sessionEnd = parseSessionDate(viewingSession?.end_date);
+
+  // Build the list of in-session (year, month) periods for the dropdown.
+  const periodOptions: { value: string; label: string; year: number; month: number }[] =
+    (() => {
+      if (!sessionStart || !sessionEnd) {
+        return [
+          {
+            value: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`,
+            label: `${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
+            year: now.getFullYear(),
+            month: now.getMonth() + 1,
+          },
+        ];
+      }
+      const out: { value: string; label: string; year: number; month: number }[] = [];
+      let y = sessionStart.getFullYear();
+      let m = sessionStart.getMonth(); // 0-indexed
+      const endY = sessionEnd.getFullYear();
+      const endM = sessionEnd.getMonth();
+      while (y < endY || (y === endY && m <= endM)) {
+        out.push({
+          value: `${y}-${String(m + 1).padStart(2, "0")}`,
+          label: `${MONTHS[m]} ${y}`,
+          year: y,
+          month: m + 1,
+        });
+        m++;
+        if (m > 11) {
+          m = 0;
+          y++;
+        }
+      }
+      return out;
+    })();
+
+  // Default to "today" if it falls in the session; otherwise clamp to the
+  // nearest in-range month so the grid isn't empty on first paint.
+  const initialRef = (() => {
+    if (sessionStart && now < sessionStart) return sessionStart;
+    if (sessionEnd && now > sessionEnd) return sessionEnd;
+    return now;
+  })();
+  const [month, setMonth] = useState(initialRef.getMonth() + 1);
+  const [year, setYear] = useState(initialRef.getFullYear());
   const [classesLoading, setClassesLoading] = useState(true);
 
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -236,7 +290,7 @@ function TeacherAttendancePage() {
       <h1 className="text-2xl font-bold text-primary-900">Attendance</h1>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select
           label="Class - Section"
           value={selectedCs}
@@ -250,16 +304,14 @@ function TeacherAttendancePage() {
           ]}
         />
         <Select
-          label="Month"
-          value={String(month)}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
-        />
-        <Select
-          label="Year"
-          value={String(year)}
-          onChange={(e) => setYear(Number(e.target.value))}
-          options={[year - 1, year, year + 1].map((y) => ({ value: String(y), label: String(y) }))}
+          label="Period"
+          value={`${year}-${String(month).padStart(2, "0")}`}
+          onChange={(e) => {
+            const [y, m] = e.target.value.split("-").map(Number);
+            setYear(y);
+            setMonth(m);
+          }}
+          options={periodOptions.map((p) => ({ value: p.value, label: p.label }))}
         />
       </div>
 

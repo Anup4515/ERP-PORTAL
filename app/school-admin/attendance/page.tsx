@@ -39,12 +39,56 @@ const MONTHS = [
 ];
 
 export default function AttendancePage() {
-  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { viewingSession, withSessionId } = useViewingSession();
   const now = new Date();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [classSectionValue, setClassSectionValue] = useState("");
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+
+  // Session boundaries — the period selector only shows in-session months.
+  const parseSessionDate = (raw: string | null | undefined): Date | null => {
+    if (!raw) return null;
+    const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  };
+  const sessionStart = parseSessionDate(viewingSession?.start_date);
+  const sessionEnd = parseSessionDate(viewingSession?.end_date);
+
+  const periodOptions: { value: string; label: string }[] = (() => {
+    if (!sessionStart || !sessionEnd) {
+      return [
+        {
+          value: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`,
+          label: `${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
+        },
+      ];
+    }
+    const out: { value: string; label: string }[] = [];
+    let y = sessionStart.getFullYear();
+    let m = sessionStart.getMonth();
+    const endY = sessionEnd.getFullYear();
+    const endM = sessionEnd.getMonth();
+    while (y < endY || (y === endY && m <= endM)) {
+      out.push({
+        value: `${y}-${String(m + 1).padStart(2, "0")}`,
+        label: `${MONTHS[m]} ${y}`,
+      });
+      m++;
+      if (m > 11) {
+        m = 0;
+        y++;
+      }
+    }
+    return out;
+  })();
+
+  const initialRef = (() => {
+    if (sessionStart && now < sessionStart) return sessionStart;
+    if (sessionEnd && now > sessionEnd) return sessionEnd;
+    return now;
+  })();
+  const [month, setMonth] = useState(initialRef.getMonth() + 1);
+  const [year, setYear] = useState(initialRef.getFullYear());
 
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -175,7 +219,7 @@ export default function AttendancePage() {
       <h1 className="text-2xl font-bold text-primary-900">Attendance</h1>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select
           label="Class - Section"
           value={classSectionValue}
@@ -186,22 +230,14 @@ export default function AttendancePage() {
           ]}
         />
         <Select
-          label="Month"
-          value={String(month)}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          options={MONTHS.map((m, i) => ({
-            value: String(i + 1),
-            label: m,
-          }))}
-        />
-        <Select
-          label="Year"
-          value={String(year)}
-          onChange={(e) => setYear(Number(e.target.value))}
-          options={[year - 1, year, year + 1].map((y) => ({
-            value: String(y),
-            label: String(y),
-          }))}
+          label="Period"
+          value={`${year}-${String(month).padStart(2, "0")}`}
+          onChange={(e) => {
+            const [y, m] = e.target.value.split("-").map(Number);
+            setYear(y);
+            setMonth(m);
+          }}
+          options={periodOptions}
         />
       </div>
 

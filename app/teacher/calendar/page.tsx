@@ -77,7 +77,53 @@ export default function TeacherCalendarPage() {
 
   useEffect(() => { fetchCalendar(); }, [fetchCalendar]);
 
+  // Session boundaries from context.
+  // Extract Y/M/D from the first "YYYY-MM-DD" in the raw value and build a
+  // local-midnight Date, so server/client TZ differences can't shift months.
+  const parseSessionDate = (raw: string | null | undefined): Date | null => {
+    if (!raw) return null;
+    const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  };
+  const sessionStart = parseSessionDate(viewingSession?.start_date);
+  const sessionEnd = parseSessionDate(viewingSession?.end_date);
+
+  // Clamp current month into session window when session changes
+  useEffect(() => {
+    if (!sessionStart || !sessionEnd) return;
+    const firstOfCurrent = new Date(year, month, 1);
+    const firstOfSessionStart = new Date(
+      sessionStart.getFullYear(),
+      sessionStart.getMonth(),
+      1
+    );
+    const firstOfSessionEnd = new Date(
+      sessionEnd.getFullYear(),
+      sessionEnd.getMonth(),
+      1
+    );
+    if (firstOfCurrent < firstOfSessionStart) {
+      setYear(sessionStart.getFullYear());
+      setMonth(sessionStart.getMonth());
+    } else if (firstOfCurrent > firstOfSessionEnd) {
+      setYear(sessionEnd.getFullYear());
+      setMonth(sessionEnd.getMonth());
+    }
+  }, [viewingSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const atSessionStart =
+    sessionStart !== null &&
+    year === sessionStart.getFullYear() &&
+    month === sessionStart.getMonth();
+  const atSessionEnd =
+    sessionEnd !== null &&
+    year === sessionEnd.getFullYear() &&
+    month === sessionEnd.getMonth();
+
   const goMonth = (dir: -1 | 1) => {
+    if (dir === -1 && atSessionStart) return;
+    if (dir === 1 && atSessionEnd) return;
     let m = month + dir, y = year;
     if (m < 0) { m = 11; y--; }
     if (m > 11) { m = 0; y++; }
@@ -100,22 +146,26 @@ export default function TeacherCalendarPage() {
 
       {/* Month nav */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => goMonth(-1)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => goMonth(-1)}
+          disabled={atSessionStart}
+        >
           <ChevronLeftIcon className="w-4 h-4" /> Prev
         </Button>
         <h2 className="text-lg font-semibold text-primary-900">
           {MONTHS[month]} {year}
         </h2>
-        <Button variant="ghost" size="sm" onClick={() => goMonth(1)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => goMonth(1)}
+          disabled={atSessionEnd}
+        >
           Next <ChevronRightIcon className="w-4 h-4" />
         </Button>
       </div>
-
-      {!loading && !hasData && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
-          No calendar data for {MONTHS[month]} {year}.
-        </div>
-      )}
 
       {loading ? (
         <div className="animate-pulse h-96 bg-gray-100 rounded-xl" />

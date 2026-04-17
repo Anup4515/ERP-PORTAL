@@ -37,6 +37,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authorized for this class" }, { status: 403 })
     }
 
+    // Load session date range — attendance dates must fall within it
+    const sessionRows = await executeQuery<{ start_date: string | Date; end_date: string | Date }[]>(
+      "SELECT start_date, end_date FROM erp_sessions WHERE id = ?",
+      [sess.sessionId]
+    )
+    if (sessionRows.length === 0) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 })
+    }
+    const toISO = (d: string | Date) =>
+      typeof d === "string" ? d.slice(0, 10) : d.toISOString().slice(0, 10)
+    const sessionStart = toISO(sessionRows[0].start_date)
+    const sessionEnd = toISO(sessionRows[0].end_date)
+
+    // Reject if any incoming date is outside the session window
+    const outOfRange = records.find(
+      (r: { date?: string }) =>
+        typeof r.date === "string" && (r.date < sessionStart || r.date > sessionEnd)
+    )
+    if (outOfRange) {
+      return NextResponse.json(
+        {
+          error: `Attendance dates must be within the session window (${sessionStart} to ${sessionEnd}).`,
+        },
+        { status: 400 }
+      )
+    }
+
     // Get holiday dates to prevent marking on holidays
     const holidayRows = await executeQuery<{ date: string }[]>(
       `SELECT DATE_FORMAT(date, '%Y-%m-%d') as date FROM erp_calendar_days

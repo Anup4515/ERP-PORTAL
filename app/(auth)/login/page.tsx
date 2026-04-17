@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   EnvelopeIcon,
@@ -12,7 +11,6 @@ import {
 } from "@heroicons/react/24/outline"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -38,12 +36,13 @@ export default function LoginPage() {
         const sessionRes = await fetch("/api/auth/session")
         const session = await sessionRes.json()
 
+        // Use window.location for full page load so middleware runs
         if (session?.user?.role === "school_admin" && !session?.user?.school_id) {
-          router.push("/setup-partner")
+          window.location.href = "/setup-partner"
         } else if (session?.user?.role === "teacher") {
-          router.push("/teacher/dashboard")
+          window.location.href = "/teacher/dashboard"
         } else {
-          router.push("/school-admin/dashboard")
+          window.location.href = "/school-admin/dashboard"
         }
       }
     } catch {

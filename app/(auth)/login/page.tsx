@@ -34,7 +34,17 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Invalid email or password. Please try again.")
       } else {
-        router.push("/")
+        // Fetch the session to determine where to redirect
+        const sessionRes = await fetch("/api/auth/session")
+        const session = await sessionRes.json()
+
+        if (session?.user?.role === "school_admin" && !session?.user?.school_id) {
+          router.push("/setup-partner")
+        } else if (session?.user?.role === "teacher") {
+          router.push("/teacher/dashboard")
+        } else {
+          router.push("/school-admin/dashboard")
+        }
       }
     } catch {
       setError("Something went wrong. Please try again later.")

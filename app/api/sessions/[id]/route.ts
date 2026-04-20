@@ -49,34 +49,65 @@ export async function PUT(
     const datesChanged = newStart !== oldStart || newEnd !== oldEnd
 
     if (datesChanged) {
-      // Check if session has any recorded activity (attendance or marks)
-      const activityRows = await executeQuery<{ cnt: number }[]>(
-        `SELECT (
-           (SELECT COUNT(*) FROM erp_attendance_records ea
-              JOIN erp_student_enrollments ese ON ese.id = ea.student_enrollment_id
-              JOIN erp_class_sections ecs ON ecs.id = ese.class_section_id
-             WHERE ecs.session_id = ?)
-           +
-           (SELECT COUNT(*) FROM erp_marks em
-              JOIN erp_exams ex ON ex.id = em.exam_id
-              JOIN erp_class_sections ecs ON ecs.id = ex.class_section_id
-             WHERE ecs.session_id = ?)
-         ) AS cnt`,
+      // Rule: dates can only shrink (or stay the same). Widening is blocked —
+      // the business intent is that a session's span is fixed at creation;
+      // corrections can only tighten it.
+      if (newStart < oldStart || newEnd > oldEnd) {
+        return NextResponse.json(
+          {
+            error:
+              "Session dates can only be shrunk (or left unchanged), not widened.",
+          },
+          { status: 409 }
+        )
+      }
+
+      // Safety: a shrink that would orphan recorded attendance or marks is
+      // refused. If any activity falls outside the new range, the admin must
+      // either widen their new range or delete the activity first.
+      const boundsRows = await executeQuery<
+        { earliest_activity: string | null; latest_activity: string | null }[]
+      >(
+        `SELECT
+           MIN(activity_date) AS earliest_activity,
+           MAX(activity_date) AS latest_activity
+         FROM (
+           SELECT ea.date AS activity_date
+             FROM erp_attendance_records ea
+             JOIN erp_student_enrollments ese ON ese.id = ea.student_enrollment_id
+             JOIN erp_class_sections ecs ON ecs.id = ese.class_section_id
+            WHERE ecs.session_id = ?
+           UNION ALL
+           SELECT ex.start_date AS activity_date
+             FROM erp_marks em
+             JOIN erp_exams ex ON ex.id = em.exam_id
+             JOIN erp_class_sections ecs ON ecs.id = ex.class_section_id
+            WHERE ecs.session_id = ?
+         ) act`,
         [id, id]
       )
-      const hasActivity = (activityRows[0]?.cnt ?? 0) > 0
+      const earliest = boundsRows[0]?.earliest_activity
+        ? toISO(boundsRows[0].earliest_activity)
+        : null
+      const latest = boundsRows[0]?.latest_activity
+        ? toISO(boundsRows[0].latest_activity)
+        : null
 
-      if (hasActivity) {
-        // Only allow widening the range
-        if (newStart > oldStart || newEnd < oldEnd) {
-          return NextResponse.json(
-            {
-              error:
-                "This session has recorded attendance or marks — dates can only be widened, not narrowed.",
-            },
-            { status: 409 }
-          )
-        }
+      if (earliest && newStart > earliest) {
+        return NextResponse.json(
+          {
+            error: `Cannot shrink start date past recorded activity (earliest activity on ${earliest}).`,
+          },
+          { status: 409 }
+        )
+      }
+      if (latest && newEnd < latest) {
+        return NextResponse.json(
+          {
+            error: `Cannot shrink end date before recorded activity (latest activity on ${latest}).`,
+          },
+          { status: 409 }
+        )
       }
     }
 

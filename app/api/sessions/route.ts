@@ -48,9 +48,28 @@ export async function POST(request: Request) {
       )
     }
 
+    // Raw creation is only allowed when this partner has zero sessions.
+    // Subsequent sessions must be created via Session Transition so student
+    // promotion, enrollment carry-over, and is_current flipping happen atomically.
+    const existingRows = await executeQuery<{ cnt: number }[]>(
+      "SELECT COUNT(*) as cnt FROM erp_sessions WHERE partner_id = ?",
+      [ctx.partnerUserId]
+    )
+    const isFirstSession = (existingRows[0]?.cnt ?? 0) === 0
+    if (!isFirstSession) {
+      return NextResponse.json(
+        {
+          error:
+            "A session already exists. Use Session Transition to start a new academic year.",
+        },
+        { status: 409 }
+      )
+    }
+
+    // First session auto-activates (is_current = 1).
     const result = await executeQuery<{ insertId: number }>(
-      `INSERT INTO erp_sessions (partner_id, name, start_date, end_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NOW(), NOW())`,
+      `INSERT INTO erp_sessions (partner_id, name, start_date, end_date, is_current, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, NOW(), NOW())`,
       [ctx.partnerUserId, name, start_date, end_date]
     )
 

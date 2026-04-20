@@ -19,6 +19,10 @@ interface ViewingSessionContextValue {
   loading: boolean
   /** Append session_id to a URL. Handles both `?` and `&` cases. */
   withSessionId: (url: string) => string
+  /** Re-fetch sessions. Call after any mutation that changes session state
+   *  (create, edit, delete, set-current, transition) so the top-right
+   *  switcher stays in sync with the database. */
+  refreshSessions: () => Promise<void>
 }
 
 const ViewingSessionContext = createContext<ViewingSessionContextValue>({
@@ -28,6 +32,7 @@ const ViewingSessionContext = createContext<ViewingSessionContextValue>({
   setViewingSessionId: () => {},
   loading: true,
   withSessionId: (url) => url,
+  refreshSessions: async () => {},
 })
 
 export function useViewingSession() {
@@ -114,8 +119,9 @@ export default function ViewingSessionProvider({ children }: { children: React.R
       setViewingSessionId,
       loading,
       withSessionId,
+      refreshSessions: fetchSessions,
     }),
-    [sessions, viewingSession, isViewingPastSession, setViewingSessionId, loading, withSessionId]
+    [sessions, viewingSession, isViewingPastSession, setViewingSessionId, loading, withSessionId, fetchSessions]
   )
 
   return (

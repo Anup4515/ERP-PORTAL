@@ -7,7 +7,6 @@ import Input from "@/app/components/shared/Input";
 import Modal from "@/app/components/shared/Modal";
 import DataTable from "@/app/components/shared/DataTable";
 import Badge from "@/app/components/shared/Badge";
-import ConfirmDialog from "@/app/components/shared/ConfirmDialog";
 import EmptyState from "@/app/components/shared/EmptyState";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
@@ -46,15 +45,16 @@ function formatDate(dateStr: string): string {
 
 export default function SessionsTab() {
   const router = useRouter();
-  const { isViewingPastSession } = useViewingSession();
+  const { isViewingPastSession, refreshSessions } = useViewingSession();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [formData, setFormData] = useState<SessionFormData>(initialFormData);
   const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
-  const [settingCurrent, setSettingCurrent] = useState<string | null>(null);
+  // Delete + Set Current actions have been removed from the UI. Sessions are
+  // immutable once created — only the current session can be edited (name +
+  // shrink dates) and new sessions are created via Session Transition.
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -121,7 +121,7 @@ export default function SessionsTab() {
         return;
       }
       closeModal();
-      await fetchSessions();
+      await Promise.all([fetchSessions(), refreshSessions()]);
     } catch (err) {
       console.error("Failed to save session:", err);
       setFormError("Something went wrong. Please try again.");
@@ -130,28 +130,6 @@ export default function SessionsTab() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await fetch(`/api/sessions/${deleteTarget.id}`, { method: "DELETE" });
-      setDeleteTarget(null);
-      await fetchSessions();
-    } catch (err) {
-      console.error("Failed to delete session:", err);
-    }
-  };
-
-  const handleSetCurrent = async (sessionId: string) => {
-    setSettingCurrent(sessionId);
-    try {
-      await fetch(`/api/sessions/${sessionId}/set-current`, { method: "POST" });
-      await fetchSessions();
-    } catch (err) {
-      console.error("Failed to set current session:", err);
-    } finally {
-      setSettingCurrent(null);
-    }
-  };
 
   const columns = [
     { key: "name", label: "Name" },
@@ -180,37 +158,17 @@ export default function SessionsTab() {
       label: "Actions",
       render: (row: Record<string, unknown>) => {
         const session = row as unknown as Session;
+        // Only the current session is editable. Past sessions are view-only.
+        if (!session.is_current) return <span className="text-gray-400 text-sm">—</span>;
         return (
-          <div className="flex items-center gap-2">
-            {!session.is_current && (
-              <Button
-                variant="outline"
-                size="sm"
-                loading={settingCurrent === session.id}
-                onClick={() => handleSetCurrent(session.id)}
-                disabled={isViewingPastSession}
-              >
-                Set Current
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openEditModal(session)}
-              disabled={isViewingPastSession}
-            >
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDeleteTarget(session)}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              disabled={isViewingPastSession}
-            >
-              Delete
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openEditModal(session)}
+            disabled={isViewingPastSession}
+          >
+            Edit
+          </Button>
         );
       },
     },
@@ -226,7 +184,15 @@ export default function SessionsTab() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {sessions.some((s) => s.is_current) && (
+          {sessions.length === 0 ? (
+            // No sessions yet — the only path forward is to create the first one.
+            <Button variant="primary" size="md" onClick={openCreateModal} disabled={isViewingPastSession}>
+              Add Session
+            </Button>
+          ) : (
+            // At least one session exists — new sessions must go through Session
+            // Transition so promotions, enrollment carry-over, and is_current
+            // flipping happen atomically. Raw "Add Session" is intentionally hidden.
             <Button
               variant="secondary"
               size="md"
@@ -236,9 +202,6 @@ export default function SessionsTab() {
               Session Transition
             </Button>
           )}
-          <Button variant="primary" size="md" onClick={openCreateModal} disabled={isViewingPastSession}>
-            Add Session
-          </Button>
         </div>
       </div>
 
@@ -300,6 +263,10 @@ export default function SessionsTab() {
             value={formData.start_date}
             onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
             required
+            // On edit, dates can only shrink: start may move forward (later)
+            // but never earlier than its original value.
+            min={editingSession ? editingSession.start_date?.slice(0, 10) : undefined}
+            max={editingSession ? editingSession.end_date?.slice(0, 10) : undefined}
           />
           <Input
             label="End Date"
@@ -308,6 +275,9 @@ export default function SessionsTab() {
             value={formData.end_date}
             onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
             required
+            // On edit, end may move earlier but never past its original value.
+            min={editingSession ? editingSession.start_date?.slice(0, 10) : undefined}
+            max={editingSession ? editingSession.end_date?.slice(0, 10) : undefined}
           />
           <div className="flex items-center justify-end gap-3 pt-2">
             <Button variant="ghost" size="md" onClick={closeModal}>
@@ -325,16 +295,6 @@ export default function SessionsTab() {
         </form>
       </Modal>
 
-      {/* Delete Confirm Dialog */}
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Delete Session"
-        message={`Are you sure you want to delete the session "${deleteTarget?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="danger"
-      />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   ArrowPathIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -106,6 +107,7 @@ const STEPS = [
 
 export default function SessionTransitionPage() {
   const router = useRouter();
+  const { refreshSessions } = useViewingSession();
 
   // State
   const [step, setStep] = useState(0);
@@ -349,6 +351,9 @@ export default function SessionTransitionPage() {
 
       setResultData(json.data);
       setStep(4); // success step
+      // Sync the shared viewing-session state so the top-right switcher and
+      // any other subscriber of ViewingSessionProvider reflects the flip.
+      await refreshSessions();
     } catch {
       setError("Failed to execute transition");
     } finally {

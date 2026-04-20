@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     }
 
     if (ctx.role === "school_admin") {
-      const stats = await getSchoolAdminStats(ctx.partnerUserId, sess.sessionId)
+      const stats = await getSchoolAdminStats(ctx.partnerUserId, ctx.schoolId, sess.sessionId)
       return NextResponse.json({ data: stats })
     }
 
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   }
 }
 
-async function getSchoolAdminStats(partnerUserId: number, sessionId: number) {
+async function getSchoolAdminStats(partnerUserId: number, schoolId: number, sessionId: number) {
   const currentSessionId = sessionId
 
   // Total students (enrollments → class_sections → session for partner scoping)
@@ -57,10 +57,12 @@ async function getSchoolAdminStats(partnerUserId: number, sessionId: number) {
   )
   const totalStudents = studentRows[0]?.count || 0
 
-  // Total teachers (partner_teachers stores a JSON array of teacher user IDs)
+  // Total teachers — count from the authoritative `teachers` table, keyed on
+  // partners.id. The legacy partner_teachers.teacher_ids JSON array can drift
+  // out of sync (JSON_SEARCH in the delete path doesn't match integer values).
   const teacherRows = await executeQuery<{ count: number }[]>(
-    "SELECT COALESCE(JSON_LENGTH(teacher_ids), 0) as count FROM partner_teachers WHERE partner_id = ?",
-    [partnerUserId]
+    "SELECT COUNT(*) as count FROM teachers WHERE partner_id = ?",
+    [schoolId]
   )
   const totalTeachers = teacherRows[0]?.count || 0
 

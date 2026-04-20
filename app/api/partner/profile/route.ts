@@ -14,6 +14,13 @@ export async function GET() {
       )
     }
 
+    if (session.user.role !== "school_admin") {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      )
+    }
+
     const school_id = session.user.school_id
 
     if (!school_id) {

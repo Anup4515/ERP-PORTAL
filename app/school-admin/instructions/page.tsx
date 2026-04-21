@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/app/components/shared";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 import {
   AcademicCapIcon,
   ArrowPathIcon,
@@ -52,6 +53,7 @@ function Step({ number, title, icon, description, items }: StepProps) {
 }
 
 export default function InstructionsPage() {
+  const { label, labelPossessive } = usePartnerBranding();
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
@@ -59,20 +61,20 @@ export default function InstructionsPage() {
           Getting Started Guide
         </h1>
         <p className="text-gray-500 mt-1 text-base">
-          Follow these steps to set up and manage your school portal.
+          Follow these steps to set up and manage your {label} portal.
         </p>
       </div>
 
       {/* Quick Overview */}
       <Card className="bg-primary-50/30 border-primary-100">
         <h2 className="text-base font-semibold text-primary-900 mb-2">
-          Welcome to WiserWits School ERP
+          Welcome to WiserWits
         </h2>
         <p className="text-sm text-gray-600 leading-relaxed">
-          This portal helps you manage your school&apos;s day-to-day operations
+          This portal helps you manage your {labelPossessive} day-to-day operations
           digitally — from student records and teacher assignments to attendance
           tracking, exams, and marks. Follow the steps below in order to get
-          your school fully set up.
+          your {label} fully set up.
         </p>
       </Card>
 
@@ -80,11 +82,11 @@ export default function InstructionsPage() {
       <div className="space-y-4">
         <Step
           number={1}
-          title="Configure School Settings"
+          title={`Configure ${label.charAt(0).toUpperCase() + label.slice(1)} Settings`}
           icon={<Cog6ToothIcon className="w-5 h-5" />}
-          description="Go to Settings from the sidebar. This is where you set up the foundation of your school."
+          description={`Go to Settings from the sidebar. This is where you set up the foundation of your ${label}.`}
           items={[
-            "School Profile — Update your school name, contact details, address, and logo",
+            `${label.charAt(0).toUpperCase() + label.slice(1)} Profile — Update your ${label} name, contact details, address, and logo`,
             "Academic Sessions — Create your academic year (e.g. 2026-2027) with start and end dates. The calendar is auto-generated when you create a session",
             "Classes & Sections — Add your classes (e.g. Class 10) and sections (e.g. A, B) under each class",
             "Subjects — Select a class-section and add subjects (e.g. Maths, Science, English). You can assign teachers to subjects later",

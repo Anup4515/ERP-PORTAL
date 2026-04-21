@@ -19,6 +19,7 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface Teacher {
   user_id: number;
@@ -54,6 +55,7 @@ const emptyForm: TeacherForm = {
 
 export default function TeachersListPage() {
   const { isViewingPastSession } = useViewingSession();
+  const { labelPossessive } = usePartnerBranding();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -364,7 +366,7 @@ export default function TeachersListPage() {
               Teachers
             </h1>
             <p className="text-gray-500 mt-1 text-base">
-              Manage your school&apos;s teaching staff
+              Manage your {labelPossessive} teaching staff
             </p>
           </div>
         </div>
@@ -382,7 +384,7 @@ export default function TeachersListPage() {
             Teachers
           </h1>
           <p className="text-gray-500 mt-1 text-base">
-            Manage your school&apos;s teaching staff
+            Manage your {labelPossessive} teaching staff
           </p>
         </div>
         <Button

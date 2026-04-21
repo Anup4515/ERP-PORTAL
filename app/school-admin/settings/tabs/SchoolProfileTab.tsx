@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Card, Input, Button, LoadingSkeleton } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 const MAX_LOGO_BYTES = 500 * 1024;
 
@@ -42,6 +43,7 @@ const initialFormState: Partner = {
 
 export default function SchoolProfileTab() {
   const { isViewingPastSession } = useViewingSession();
+  const { label, labelPossessive } = usePartnerBranding();
   const [form, setForm] = useState<Partner>(initialFormState);
   const [originalForm, setOriginalForm] = useState<Partner>(initialFormState);
   const [loading, setLoading] = useState(true);
@@ -184,7 +186,7 @@ export default function SchoolProfileTab() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900">School Profile</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Manage your institution&apos;s basic information
+            Manage your {labelPossessive} basic information
           </p>
         </div>
 
@@ -237,7 +239,7 @@ export default function SchoolProfileTab() {
                 </button>
               )}
               <p className="text-xs text-gray-400">
-                PNG, JPEG, WEBP, or SVG. Max 500 KB. Shown in the sidebar alongside your institution name.
+                PNG, JPEG, WEBP, or SVG. Max 500 KB. Shown in the sidebar alongside your {label} name.
               </p>
             </div>
           </div>

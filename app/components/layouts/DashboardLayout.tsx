@@ -4,9 +4,12 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { cn } from "@/app/lib/utils";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import PartnerBrandingProvider, {
+  usePartnerBranding,
+} from "@/app/components/providers/PartnerBrandingProvider";
 import ReadOnlyBanner from "@/app/components/shared/ReadOnlyBanner";
 import {
   HomeIcon,
@@ -87,50 +90,21 @@ interface DashboardLayoutProps {
   role: "school_admin" | "teacher";
 }
 
-interface PartnerBranding {
-  partner_name: string;
-  logo: string | null;
+export default function DashboardLayout(props: DashboardLayoutProps) {
+  return (
+    <PartnerBrandingProvider>
+      <DashboardLayoutInner {...props} />
+    </PartnerBrandingProvider>
+  );
 }
 
-export default function DashboardLayout({
-  children,
-  role,
-}: DashboardLayoutProps) {
+function DashboardLayoutInner({ children, role }: DashboardLayoutProps) {
   const pathname = usePathname();
-  const { status } = useSession();
+  const { branding } = usePartnerBranding();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessionDropdownOpen, setSessionDropdownOpen] = useState(false);
-  const [branding, setBranding] = useState<PartnerBranding | null>(null);
   const sessionDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    let cancelled = false;
-
-    async function loadBranding() {
-      try {
-        const res = await fetch("/api/partner/branding", { cache: "no-store" });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!cancelled) setBranding(json.data ?? null);
-      } catch {
-        // fall back to default WiserWits branding
-      }
-    }
-
-    loadBranding();
-
-    function handleBrandingUpdated() {
-      loadBranding();
-    }
-    window.addEventListener("wiserwits:branding-updated", handleBrandingUpdated);
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener("wiserwits:branding-updated", handleBrandingUpdated);
-    };
-  }, [status]);
 
   const {
     sessions,

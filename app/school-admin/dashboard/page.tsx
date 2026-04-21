@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Card, StatsCard } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface UpcomingExam {
   id: number;
@@ -33,6 +34,7 @@ interface DashboardStats {
 
 export default function SchoolAdminDashboardPage() {
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { label } = usePartnerBranding();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
@@ -67,7 +69,7 @@ export default function SchoolAdminDashboardPage() {
           Welcome, Admin!
         </h1>
         <p className="text-gray-500 mt-1 text-base">
-          Maintain your portal operations effortlessly
+          Maintain your {label} operations effortlessly
         </p>
       </div>
 
@@ -95,7 +97,7 @@ export default function SchoolAdminDashboardPage() {
                 New here? Check the Getting Started Guide
               </h3>
               <p className="text-xs text-gray-600 mt-0.5">
-                Step-by-step instructions to set up your school — sessions, classes, teachers, students, and more.
+                Step-by-step instructions to set up your {label} — sessions, classes, teachers, students, and more.
               </p>
             </div>
             <Link
@@ -195,7 +197,7 @@ export default function SchoolAdminDashboardPage() {
               </svg>
               <p className="text-sm font-medium">No recent activity</p>
               <p className="text-xs text-gray-300 mt-1">
-                Activity will appear here as your school uses the platform
+                Activity will appear here as your {label} uses the platform
               </p>
             </div>
           )}

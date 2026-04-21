@@ -10,6 +10,7 @@ import EmptyState from "@/app/components/shared/EmptyState";
 import LoadingSkeleton from "@/app/components/shared/LoadingSkeleton";
 import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface Section {
   id: number;
@@ -44,6 +45,7 @@ interface AddSectionForm {
 
 export default function ClassesTab() {
   const { isViewingPastSession, withSessionId, viewingSession } = useViewingSession();
+  const { label } = usePartnerBranding();
   const [classes, setClasses] = useState<ClassWithSections[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -266,7 +268,7 @@ export default function ClassesTab() {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Classes</h3>
           <p className="text-sm text-gray-500 mt-1">
-            Manage your school classes and their sections
+            Manage your {label} classes and their sections
           </p>
         </div>
         <Button variant="primary" onClick={() => setShowAddClass(true)} disabled={isViewingPastSession}>

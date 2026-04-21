@@ -5,6 +5,7 @@ import { executeQuery } from "@/app/lib/db"
 interface BrandingRow {
   partner_name: string
   logo: string | null
+  partner_type: string | null
 }
 
 export async function GET() {
@@ -22,7 +23,7 @@ export async function GET() {
     }
 
     const rows = await executeQuery<(BrandingRow & Record<string, unknown>)[]>(
-      "SELECT partner_name, logo FROM partners WHERE id = ? LIMIT 1",
+      "SELECT partner_name, logo, partner_type FROM partners WHERE id = ? LIMIT 1",
       [school_id]
     )
 
@@ -34,6 +35,7 @@ export async function GET() {
       data: {
         partner_name: rows[0].partner_name,
         logo: rows[0].logo,
+        partner_type: rows[0].partner_type,
       },
     })
   } catch (error) {

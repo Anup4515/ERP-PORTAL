@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/app/components/shared";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 import {
   AcademicCapIcon,
   CalendarDaysIcon,
@@ -48,6 +49,7 @@ function Step({ number, title, icon, description, items }: StepProps) {
 }
 
 export default function TeacherInstructionsPage() {
+  const { label } = usePartnerBranding();
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
@@ -66,9 +68,9 @@ export default function TeacherInstructionsPage() {
         </h2>
         <p className="text-sm text-gray-600 leading-relaxed">
           As a teacher, you can view your assigned classes, manage student
-          information, mark daily attendance, view the school calendar, and
+          information, mark daily attendance, view the {label} calendar, and
           enter exam marks. Your access is limited to the classes and subjects
-          assigned to you by the school admin.
+          assigned to you by the {label} admin.
         </p>
       </Card>
 
@@ -121,7 +123,7 @@ export default function TeacherInstructionsPage() {
           number={4}
           title="View Calendar"
           icon={<CalendarDaysIcon className="w-5 h-5" />}
-          description="Go to Calendar from the sidebar to see the school's academic calendar."
+          description={`Go to Calendar from the sidebar to see the ${label} academic calendar.`}
           items={[
             "The calendar shows the current session's working days and holidays",
             "Sundays are highlighted in orange, holidays in red with the reason (e.g. 'Diwali', 'Summer Vacation')",

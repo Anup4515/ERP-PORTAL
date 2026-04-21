@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, Button, Select, LoadingSkeleton, EmptyState } from "@/app/components/shared";
 import { SparklesIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface SubParameter { id: number; name: string }
 interface Student { enrollment_id: number; first_name: string; last_name: string; roll_number: number | null }
@@ -44,6 +45,7 @@ function ratingBg(val: number | null | undefined) {
 
 export default function TeacherHolisticPage() {
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { label } = usePartnerBranding();
   const [parameters, setParameters] = useState<Parameter[]>([]);
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -263,7 +265,7 @@ export default function TeacherHolisticPage() {
         <EmptyState
           icon={<SparklesIcon className="h-12 w-12" />}
           title="No Parameters Configured"
-          description="Holistic parameters have not been set up yet. Please contact your school admin."
+          description={`Holistic parameters have not been set up yet. Please contact your ${label} admin.`}
         />
       </div>
     );

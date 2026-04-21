@@ -8,6 +8,7 @@ import ClassesTab from "./tabs/ClassesTab";
 import SubjectsTab from "./tabs/SubjectsTab";
 import GradingTab from "./tabs/GradingTab";
 import HolisticParamsTab from "./tabs/HolisticParamsTab";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 const settingsTabs = [
   { key: "school-profile", label: "School Profile" },
@@ -20,12 +21,13 @@ const settingsTabs = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("school-profile");
+  const { label } = usePartnerBranding();
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-primary-900">Settings</h1>
-        <p className="text-gray-500 mt-1">Configure your institution settings</p>
+        <p className="text-gray-500 mt-1">Configure your {label} settings</p>
       </div>
 
       <Tabs tabs={settingsTabs} activeTab={activeTab} onChange={setActiveTab} />

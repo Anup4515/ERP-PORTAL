@@ -15,6 +15,7 @@ import {
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface Section { id: number; name: string; class_section_id: number | null }
 interface ClassData { id: number; name: string; sections: Section[] }
@@ -34,6 +35,7 @@ const SLOT_COLORS: Record<string, string> = {
 
 export default function TimetablePage() {
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { label } = usePartnerBranding();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [csValue, setCsValue] = useState("");
   const [config, setConfig] = useState<PeriodConfig[]>([]);
@@ -366,7 +368,7 @@ export default function TimetablePage() {
       {/* Period Config Modal */}
       <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Period Structure" size="lg">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Define the period structure for your school. This applies to all classes.</p>
+          <p className="text-sm text-gray-600">Define the period structure for your {label}. This applies to all classes.</p>
 
           <div className="space-y-2 max-h-[50vh] overflow-y-auto">
             {configForm.map((p, idx) => (

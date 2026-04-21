@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Card, StatsCard, Button } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface TeacherStats {
   myClasses: number;
@@ -32,6 +33,7 @@ interface AssignedClass {
 export default function TeacherDashboardPage() {
   const router = useRouter();
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { label } = usePartnerBranding();
   const [stats, setStats] = useState<TeacherStats | null>(null);
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,7 +214,7 @@ export default function TeacherDashboardPage() {
               <RectangleGroupIcon className="w-12 h-12 mb-3 text-gray-300" />
               <p className="text-sm font-medium">No classes assigned yet</p>
               <p className="text-xs text-gray-300 mt-1">
-                Your classes will appear here once assigned by the admin
+                Your classes will appear here once assigned by the {label} admin
               </p>
             </div>
           ) : (

@@ -129,7 +129,7 @@ export default function TeacherInstructionsPage() {
             "Sundays are highlighted in orange, holidays in red with the reason (e.g. 'Diwali', 'Summer Vacation')",
             "Navigate between months using the Prev/Next buttons",
             "Total Days, Holidays, and Working Days are shown at the bottom",
-            "Contact your admin if you need to request a holiday change",
+            `Contact your ${label} admin if you need to request a holiday change`,
           ]}
         />
 
@@ -214,7 +214,7 @@ export default function TeacherInstructionsPage() {
           </li>
           <li className="flex items-start gap-2 text-sm text-yellow-800">
             <span className="mt-0.5">&#9670;</span>
-            If you don&apos;t see a class or exam, contact your admin to check your assignments
+            If you don&apos;t see a class or exam, contact your {label} admin to check your assignments
           </li>
           <li className="flex items-start gap-2 text-sm text-yellow-800">
             <span className="mt-0.5">&#9670;</span>

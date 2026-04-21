@@ -104,25 +104,98 @@ export default function SetupPartnerPage() {
   function validate(): boolean {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
 
+    if (!logo) {
+      setLogoError("Institution logo is required");
+    }
     if (!form.partner_name.trim()) {
       newErrors.partner_name = "Institution name is required";
+    }
+    if (!form.partner_type) {
+      newErrors.partner_type = "Partner type is required";
+    }
+    if (form.website && !/^https?:\/\/[^\s]+\.[^\s]+$/i.test(form.website.trim())) {
+      newErrors.website = "Enter a valid URL starting with http:// or https://";
     }
     if (!form.contact_email.trim()) {
       newErrors.contact_email = "Contact email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) {
       newErrors.contact_email = "Enter a valid email address";
     }
+    const phone = form.contact_phone.replace(/\D/g, "");
     if (!form.contact_phone.trim()) {
       newErrors.contact_phone = "Contact phone is required";
+    } else if (phone.length !== 10) {
+      newErrors.contact_phone = "Phone number must be exactly 10 digits";
+    }
+    if (form.pincode && !/^\d{6}$/.test(form.pincode.trim())) {
+      newErrors.pincode = "Pincode must be exactly 6 digits";
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return Object.keys(newErrors).length === 0 && !!logo;
+  }
+
+  function scrollToFirstError(firstErrorKey: string) {
+    // Try to find by id (inputs use `id={name}`, logo section uses `field-logo`)
+    const selector =
+      firstErrorKey === "logo"
+        ? "#field-logo"
+        : `#${CSS.escape(firstErrorKey)}`;
+    const el = document.querySelector<HTMLElement>(selector);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Focus the input if it's focusable
+      if (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLSelectElement ||
+        el instanceof HTMLTextAreaElement
+      ) {
+        el.focus({ preventScroll: true });
+      }
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      // Order: logo → partner_name → partner_type → contact_email → contact_phone → pincode → website
+      const order: (keyof FormData | "logo")[] = [
+        "logo",
+        "partner_name",
+        "partner_type",
+        "contact_email",
+        "contact_phone",
+        "pincode",
+        "website",
+      ];
+      // Re-read errors via closure-safe check using a microtask: state may not be flushed yet,
+      // so compute errors synchronously with the same rules used in validate().
+      const hasLogoError = !logo;
+      const firstKey = order.find((k) => {
+        if (k === "logo") return hasLogoError;
+        const val = form[k as keyof FormData];
+        switch (k) {
+          case "partner_name":
+            return !val.trim();
+          case "partner_type":
+            return !val;
+          case "contact_email":
+            return !val.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+          case "contact_phone": {
+            const phone = val.replace(/\D/g, "");
+            return !val.trim() || phone.length !== 10;
+          }
+          case "pincode":
+            return !!val && !/^\d{6}$/.test(val.trim());
+          case "website":
+            return !!val && !/^https?:\/\/[^\s]+\.[^\s]+$/i.test(val.trim());
+          default:
+            return false;
+        }
+      });
+      if (firstKey) scrollToFirstError(firstKey);
+      return;
+    }
 
     setLoading(true);
     setApiError("");
@@ -235,9 +308,9 @@ export default function SetupPartnerPage() {
 
           <div className="border-t border-gray-100 pt-6 space-y-5">
             {/* Institution Logo */}
-            <div className="flex flex-col gap-1.5">
+            <div id="field-logo" className="flex flex-col gap-1.5 scroll-mt-24">
               <label className="text-sm font-medium text-gray-700">
-                Institution Logo
+                Institution Logo *
               </label>
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden shrink-0">
@@ -305,7 +378,7 @@ export default function SetupPartnerPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <Select
-                label="Partner Type"
+                label="Partner Type *"
                 id="partner_type"
                 name="partner_type"
                 value={form.partner_type}
@@ -340,6 +413,7 @@ export default function SetupPartnerPage() {
                 placeholder="https://www.example.com"
                 value={form.website}
                 onChange={handleChange}
+                error={errors.website}
               />
             </div>
           </div>
@@ -399,7 +473,9 @@ export default function SetupPartnerPage() {
                 id="contact_phone"
                 name="contact_phone"
                 type="tel"
-                placeholder="+91 98765 43210"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="9876543210"
                 value={form.contact_phone}
                 onChange={handleChange}
                 error={errors.contact_phone}
@@ -480,9 +556,12 @@ export default function SetupPartnerPage() {
                 label="Pincode"
                 id="pincode"
                 name="pincode"
+                inputMode="numeric"
+                maxLength={6}
                 placeholder="e.g. 110001"
                 value={form.pincode}
                 onChange={handleChange}
+                error={errors.pincode}
               />
             </div>
           </div>

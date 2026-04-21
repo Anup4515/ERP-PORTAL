@@ -8,6 +8,7 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface AssignedClass {
   class_section_id: number;
@@ -19,6 +20,7 @@ interface AssignedClass {
 
 export default function TeacherClassesPage() {
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { label } = usePartnerBranding();
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,7 +46,7 @@ export default function TeacherClassesPage() {
             <AcademicCapIcon className="w-12 h-12 mb-3 text-gray-300" />
             <p className="text-sm font-medium">No classes assigned</p>
             <p className="text-xs text-gray-300 mt-1">
-              Contact your admin to assign classes to you.
+              Contact your {label} admin to assign classes to you.
             </p>
           </div>
         </Card>

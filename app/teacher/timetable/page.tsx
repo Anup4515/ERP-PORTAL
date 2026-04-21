@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, Select, LoadingSkeleton } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 
 interface PeriodConfig {
   period_number: number;
@@ -48,6 +49,7 @@ type ViewMode = "my_schedule" | "class_timetable";
 
 export default function TeacherTimetablePage() {
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { label } = usePartnerBranding();
   const [config, setConfig] = useState<PeriodConfig[]>([]);
   const [slots, setSlots] = useState<TeacherSlot[]>([]);
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([]);
@@ -121,7 +123,7 @@ export default function TeacherTimetablePage() {
         <LoadingSkeleton lines={10} />
       ) : config.length === 0 ? (
         <Card>
-          <p className="text-center text-gray-500 py-8">No timetable configured yet. Contact your admin.</p>
+          <p className="text-center text-gray-500 py-8">No timetable configured yet. Contact your {label} admin.</p>
         </Card>
       ) : (
         <>

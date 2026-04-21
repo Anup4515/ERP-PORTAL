@@ -16,7 +16,7 @@ const settingsTabs = [
   { key: "classes", label: "Classes" },
   { key: "subjects", label: "Subjects" },
   { key: "grading", label: "Grading" },
-  { key: "holistic-params", label: "Holistic Params" },
+  { key: "holistic-params", label: "Holistic Parameters" },
 ];
 
 export default function SettingsPage() {

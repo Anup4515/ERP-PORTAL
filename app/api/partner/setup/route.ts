@@ -48,11 +48,19 @@ export async function POST(request: Request) {
       registration_number,
       affiliated_board,
       website,
+      logo,
     } = body
 
     if (!partner_name) {
       return NextResponse.json(
         { error: "Partner name is required" },
+        { status: 400 }
+      )
+    }
+
+    if (logo && typeof logo === "string" && !/^data:image\/(png|jpe?g|webp|svg\+xml);base64,/.test(logo)) {
+      return NextResponse.json(
+        { error: "Logo must be a PNG, JPEG, WEBP, or SVG image" },
         { status: 400 }
       )
     }
@@ -67,8 +75,8 @@ export async function POST(request: Request) {
     const partner_code = `${prefix}${suffix}`
 
     const result = await executeQuery<ResultSetHeader>(
-      `INSERT INTO partners (user_id, partner_type, partner_name, partner_code, contact_person, contact_email, contact_phone, address, city, state, pincode, registration_number, affiliated_board, website, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      `INSERT INTO partners (user_id, partner_type, partner_name, partner_code, contact_person, contact_email, contact_phone, address, city, state, pincode, registration_number, affiliated_board, website, logo, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         session.user.user_id,
         partner_type,
@@ -84,6 +92,7 @@ export async function POST(request: Request) {
         registration_number || null,
         affiliated_board || null,
         website || null,
+        logo || null,
       ]
     )
 

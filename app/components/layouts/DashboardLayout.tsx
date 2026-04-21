@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/app/lib/utils";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import ReadOnlyBanner from "@/app/components/shared/ReadOnlyBanner";
@@ -90,15 +90,50 @@ interface DashboardLayoutProps {
   role: "school_admin" | "teacher";
 }
 
+interface PartnerBranding {
+  partner_name: string;
+  logo: string | null;
+}
+
 export default function DashboardLayout({
   children,
   role,
 }: DashboardLayoutProps) {
   const pathname = usePathname();
+  const { status } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessionDropdownOpen, setSessionDropdownOpen] = useState(false);
+  const [branding, setBranding] = useState<PartnerBranding | null>(null);
   const sessionDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let cancelled = false;
+
+    async function loadBranding() {
+      try {
+        const res = await fetch("/api/partner/branding", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) setBranding(json.data ?? null);
+      } catch {
+        // fall back to default WiserWits branding
+      }
+    }
+
+    loadBranding();
+
+    function handleBrandingUpdated() {
+      loadBranding();
+    }
+    window.addEventListener("wiserwits:branding-updated", handleBrandingUpdated);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("wiserwits:branding-updated", handleBrandingUpdated);
+    };
+  }, [status]);
 
   const {
     sessions,
@@ -134,25 +169,57 @@ export default function DashboardLayout({
   }
 
   function SidebarContent({ collapsed = false }: { collapsed?: boolean }) {
+    const institutionName = branding?.partner_name ?? "WiserWits";
+    const logoSrc = branding?.logo || "/logo.png";
+    const isCustomLogo = Boolean(branding?.logo);
     return (
       <div className="flex flex-col h-full">
-        {/* Logo */}
+        {/* Logo / Institution branding */}
         <div
           className={cn(
-            "flex items-center border-b border-white/15 py-6",
-            collapsed ? "justify-center px-2" : "gap-3 px-6"
+            "flex border-b border-white/15 py-6",
+            collapsed
+              ? "flex-col items-center justify-center px-2 gap-2"
+              : "flex-col items-start px-6 gap-2"
           )}
         >
-          <Image
-            src="/logo.png"
-            alt="WiserWits"
-            width={36}
-            height={36}
-            className="rounded-lg shrink-0"
-          />
-          {!collapsed && (
-            <span className="text-xl font-bold text-white tracking-tight">
-              WiserWits
+          <div
+            className={cn(
+              "flex items-center",
+              collapsed ? "justify-center" : "gap-3"
+            )}
+          >
+            {isCustomLogo ? (
+              // data URIs and dynamic remote images — use plain <img>
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoSrc}
+                alt={institutionName}
+                width={36}
+                height={36}
+                className="w-9 h-9 rounded-lg shrink-0 object-contain bg-white/90 p-0.5"
+              />
+            ) : (
+              <Image
+                src={logoSrc}
+                alt={institutionName}
+                width={36}
+                height={36}
+                className="rounded-lg shrink-0"
+              />
+            )}
+            {!collapsed && (
+              <span
+                className="text-lg font-bold text-white tracking-tight truncate max-w-[160px]"
+                title={institutionName}
+              >
+                {institutionName}
+              </span>
+            )}
+          </div>
+          {!collapsed && branding && (
+            <span className="text-[10px] uppercase tracking-wider text-primary-200/80 pl-12 -mt-1">
+              Powered by WiserWits
             </span>
           )}
         </div>

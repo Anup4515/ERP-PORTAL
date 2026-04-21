@@ -33,6 +33,13 @@ const MIGRATIONS_DIR = __dirname;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 async function getConnection() {
+  if (process.env.DATABASE_URL) {
+    return mysql.createConnection({
+      uri: process.env.DATABASE_URL,
+      charset: "utf8mb4",
+      multipleStatements: true,
+    });
+  }
   return mysql.createConnection({
     host: process.env.DB_HOST || "127.0.0.1",
     port: Number(process.env.DB_PORT) || 3306,
@@ -42,6 +49,18 @@ async function getConnection() {
     charset: "utf8mb4",
     multipleStatements: true, // migrations can contain multiple statements
   });
+}
+
+function describeConnection(): string {
+  if (process.env.DATABASE_URL) {
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      return `${url.pathname.slice(1)} @ ${url.hostname}:${url.port || 3306}`;
+    } catch {
+      return "DATABASE_URL";
+    }
+  }
+  return `${process.env.DB_NAME} @ ${process.env.DB_HOST}:${process.env.DB_PORT}`;
 }
 
 function getMigrationFiles(): { version: string; name: string; file: string }[] {
@@ -83,7 +102,7 @@ async function up() {
     const files = getMigrationFiles();
     let count = 0;
 
-    console.log(`\n  Migrating ${process.env.DB_NAME} @ ${process.env.DB_HOST}:${process.env.DB_PORT}\n`);
+    console.log(`\n  Migrating ${describeConnection()}\n`);
 
     for (const { version, name, file } of files) {
       if (applied.has(version)) continue;
@@ -131,7 +150,7 @@ async function status() {
     const applied = await getAppliedVersions(conn);
     const files = getMigrationFiles();
 
-    console.log(`\n  Migration status for ${process.env.DB_NAME}\n`);
+    console.log(`\n  Migration status for ${describeConnection()}\n`);
     console.log(`  ${"VERSION".padEnd(10)} ${"NAME".padEnd(40)} STATUS`);
     console.log(`  ${"-------".padEnd(10)} ${"----".padEnd(40)} ------`);
 

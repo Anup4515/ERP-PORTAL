@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Card, Input, Button, LoadingSkeleton } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+
+const MAX_LOGO_BYTES = 500 * 1024;
 
 interface Partner {
   partner_name: string;
@@ -18,6 +20,7 @@ interface Partner {
   website: string;
   partner_type: string;
   partner_code: string;
+  logo: string;
 }
 
 const initialFormState: Partner = {
@@ -34,6 +37,7 @@ const initialFormState: Partner = {
   website: "",
   partner_type: "",
   partner_code: "",
+  logo: "",
 };
 
 export default function SchoolProfileTab() {
@@ -43,6 +47,38 @@ export default function SchoolProfileTab() {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof Partner, string>>>({});
   const [banner, setBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [logoError, setLogoError] = useState("");
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setLogoError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!/^image\/(png|jpe?g|webp|svg\+xml)$/.test(file.type)) {
+      setLogoError("Please upload a PNG, JPEG, WEBP, or SVG image.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoError("Logo must be 500 KB or smaller.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setForm((prev) => ({ ...prev, logo: reader.result as string }));
+      }
+    };
+    reader.onerror = () => setLogoError("Could not read the file. Please try again.");
+    reader.readAsDataURL(file);
+  }
+
+  function handleRemoveLogo() {
+    setForm((prev) => ({ ...prev, logo: "" }));
+    setLogoError("");
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  }
 
   useEffect(() => {
     fetchProfile();
@@ -114,6 +150,7 @@ export default function SchoolProfileTab() {
         throw new Error(json?.error || "Failed to update profile");
       }
       setBanner({ type: "success", message: "Profile updated successfully." });
+      window.dispatchEvent(new CustomEvent("wiserwits:branding-updated"));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to update profile. Please try again.";
       setBanner({ type: "error", message });
@@ -150,6 +187,64 @@ export default function SchoolProfileTab() {
           <p className="text-sm text-gray-500 mt-1">
             Manage your institution&apos;s basic information
           </p>
+        </div>
+
+        {/* Institution Logo */}
+        <div className="mb-6 pb-6 border-b border-gray-100">
+          <label className="text-sm font-medium text-gray-700 block mb-2">
+            Institution Logo
+          </label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden shrink-0">
+              {form.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.logo}
+                  alt="Logo preview"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <svg
+                  className="w-8 h-8 text-gray-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"
+                  />
+                </svg>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={handleLogoChange}
+                disabled={isViewingPastSession}
+                className="block text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 file:cursor-pointer cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              {form.logo && !isViewingPastSession && (
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  className="self-start text-xs text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
+                >
+                  Remove
+                </button>
+              )}
+              <p className="text-xs text-gray-400">
+                PNG, JPEG, WEBP, or SVG. Max 500 KB. Shown in the sidebar alongside your institution name.
+              </p>
+            </div>
+          </div>
+          {logoError && (
+            <p className="text-xs text-red-600 mt-2">{logoError}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

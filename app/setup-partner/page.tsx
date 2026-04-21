@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { Card, Button, Input, Select } from "@/app/components/shared";
+
+const MAX_LOGO_BYTES = 500 * 1024; // 500 KB
 
 const partnerTypeOptions = [
   { value: "", label: "Select type..." },
@@ -49,6 +52,39 @@ export default function SetupPartnerPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [logo, setLogo] = useState<string>("");
+  const [logoError, setLogoError] = useState<string>("");
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setLogoError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!/^image\/(png|jpe?g|webp|svg\+xml)$/.test(file.type)) {
+      setLogoError("Please upload a PNG, JPEG, WEBP, or SVG image.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoError("Logo must be 500 KB or smaller.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setLogo(reader.result);
+      }
+    };
+    reader.onerror = () => setLogoError("Could not read the file. Please try again.");
+    reader.readAsDataURL(file);
+  }
+
+  function handleRemoveLogo() {
+    setLogo("");
+    setLogoError("");
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  }
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -95,7 +131,7 @@ export default function SetupPartnerPage() {
       const res = await fetch("/api/partner/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, logo: logo || null }),
       });
 
       if (!res.ok) {
@@ -198,6 +234,65 @@ export default function SetupPartnerPage() {
           </div>
 
           <div className="border-t border-gray-100 pt-6 space-y-5">
+            {/* Institution Logo */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                Institution Logo
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center justify-center w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden shrink-0">
+                  {logo ? (
+                    <Image
+                      src={logo}
+                      alt="Logo preview"
+                      width={80}
+                      height={80}
+                      unoptimized
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <svg
+                      className="w-8 h-8 text-gray-300"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoChange}
+                    className="block text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 file:cursor-pointer cursor-pointer"
+                  />
+                  {logo && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      className="self-start text-xs text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <p className="text-xs text-gray-400">
+                    PNG, JPEG, WEBP, or SVG. Max 500 KB.
+                  </p>
+                </div>
+              </div>
+              {logoError && (
+                <p className="text-xs text-red-600 mt-1">{logoError}</p>
+              )}
+            </div>
+
             <Input
               label="Partner Name *"
               id="partner_name"
@@ -294,7 +389,7 @@ export default function SetupPartnerPage() {
                 id="contact_email"
                 name="contact_email"
                 type="email"
-                placeholder="admin@school.edu"
+                placeholder="admin@org.edu"
                 value={form.contact_email}
                 onChange={handleChange}
                 error={errors.contact_email}

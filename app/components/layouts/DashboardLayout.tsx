@@ -21,15 +21,12 @@ import {
   Cog6ToothIcon,
   RectangleGroupIcon,
   Bars3Icon,
-  XMarkIcon,
-  BellIcon,
   ArrowRightOnRectangleIcon,
-  ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon,
   InformationCircleIcon,
   UsersIcon,
   ClockIcon,
 } from "@heroicons/react/24/outline";
+import { BuildingLibraryIcon } from "@heroicons/react/24/solid";
 
 interface NavItem {
   label: string;
@@ -40,7 +37,7 @@ interface NavItem {
 }
 
 const schoolAdminNav: NavItem[] = [
-  { label: "Dashboard", href: "/school-admin/dashboard", icon: HomeIcon },
+  { label: "Home", href: "/school-admin/dashboard", icon: HomeIcon },
   { label: "Teachers", href: "/school-admin/teachers", icon: UserGroupIcon },
   { label: "Students", href: "/school-admin/students", icon: AcademicCapIcon },
   {
@@ -64,7 +61,7 @@ const schoolAdminNav: NavItem[] = [
 ];
 
 const teacherNav: NavItem[] = [
-  { label: "Dashboard", href: "/teacher/dashboard", icon: HomeIcon },
+  { label: "Home", href: "/teacher/dashboard", icon: HomeIcon },
   {
     label: "My Classes",
     href: "/teacher/classes",
@@ -156,7 +153,6 @@ export default function DashboardLayout({
   const currentSession = sessions.find((s) => s.is_current === 1);
 
   const navItems = role === "school_admin" ? schoolAdminNav : teacherNav;
-  const roleLabel = role === "school_admin" ? "School Admin" : "Teacher";
   const userName = role === "school_admin" ? "Admin" : "Teacher";
   const initials = userName.slice(0, 2).toUpperCase();
 
@@ -169,61 +165,8 @@ export default function DashboardLayout({
   }
 
   function SidebarContent({ collapsed = false }: { collapsed?: boolean }) {
-    const institutionName = branding?.partner_name ?? "WiserWits";
-    const logoSrc = branding?.logo || "/logo.png";
-    const isCustomLogo = Boolean(branding?.logo);
     return (
       <div className="flex flex-col h-full">
-        {/* Logo / Institution branding */}
-        <div
-          className={cn(
-            "flex border-b border-white/15 py-6",
-            collapsed
-              ? "flex-col items-center justify-center px-2 gap-2"
-              : "flex-col items-start px-6 gap-2"
-          )}
-        >
-          <div
-            className={cn(
-              "flex items-center",
-              collapsed ? "justify-center" : "gap-3"
-            )}
-          >
-            {isCustomLogo ? (
-              // data URIs and dynamic remote images — use plain <img>
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoSrc}
-                alt={institutionName}
-                width={36}
-                height={36}
-                className="w-9 h-9 rounded-lg shrink-0 object-contain bg-white/90 p-0.5"
-              />
-            ) : (
-              <Image
-                src={logoSrc}
-                alt={institutionName}
-                width={36}
-                height={36}
-                className="rounded-lg shrink-0"
-              />
-            )}
-            {!collapsed && (
-              <span
-                className="text-lg font-bold text-white tracking-tight truncate max-w-[160px]"
-                title={institutionName}
-              >
-                {institutionName}
-              </span>
-            )}
-          </div>
-          {!collapsed && branding && (
-            <span className="text-[10px] uppercase tracking-wider text-primary-200/80 pl-12 -mt-1">
-              Powered by WiserWits
-            </span>
-          )}
-        </div>
-
         {/* Navigation */}
         <nav
           className={cn(
@@ -291,12 +234,149 @@ export default function DashboardLayout({
     );
   }
 
+  const institutionName = branding?.partner_name ?? "WiserWits";
+  const logoSrc = branding?.logo || "/logo.png";
+  const isCustomLogo = Boolean(branding?.logo);
+
+  function toggleSidebar() {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setSidebarCollapsed((c) => !c);
+    } else {
+      setSidebarOpen((o) => !o);
+    }
+  }
+
   return (
     <div className="min-h-screen dashboard-bg">
+      {/* Full-width top header */}
+      <header className="fixed top-0 left-0 right-0 z-40 h-[72px] bg-white border-b border-gray-200/70 shadow-sm">
+        <div className="flex items-center justify-between h-full pr-3 sm:pr-4 lg:pr-6">
+          {/* Left: hamburger (aligned to sidebar column) + institution branding */}
+          <div className="flex items-center min-w-0">
+            {/* Hamburger sits in a 72px column so it aligns with collapsed sidebar icons */}
+            <div className="w-[72px] flex items-center justify-center shrink-0">
+              <button
+                onClick={toggleSidebar}
+                className="text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg p-2 transition-colors cursor-pointer"
+                title="Toggle sidebar"
+              >
+                <Bars3Icon className="w-7 h-7" />
+              </button>
+            </div>
+
+            {/* Brand block */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              {isCustomLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoSrc}
+                  alt={institutionName}
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 rounded-lg shrink-0 object-contain border border-gray-200 bg-white"
+                />
+              ) : (
+                <Image
+                  src={logoSrc}
+                  alt={institutionName}
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 rounded-lg shrink-0"
+                />
+              )}
+              <div className="flex flex-col leading-tight min-w-0">
+                <span
+                  className="text-base font-bold text-primary-900 tracking-tight truncate max-w-[160px] sm:max-w-[260px]"
+                  title={institutionName}
+                >
+                  {institutionName}
+                </span>
+                <span className="text-[11px] uppercase tracking-wider text-gray-400">
+                  Powered by WiserWits
+                </span>
+              </div>
+            </div>
+
+            {/* Divider + page title (desktop only) */}
+            {/* <div className="hidden md:flex items-center gap-3 pl-3 ml-1 border-l border-gray-200">
+              <h1 className="text-sm font-semibold text-gray-700 truncate">
+                {pageTitle}
+              </h1>
+            </div> */}
+          </div>
+
+          {/* Right: session switcher + avatar */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {sessions.length > 1 && viewingSession && (
+              <div className="relative" ref={sessionDropdownRef}>
+                <button
+                  onClick={() => setSessionDropdownOpen(!sessionDropdownOpen)}
+                  className={cn(
+                    "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium border transition-colors cursor-pointer",
+                    isViewingPastSession
+                      ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                      : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                  )}
+                >
+                  <CalendarDaysIcon className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline max-w-[140px] truncate">{viewingSession.name}</span>
+                  <svg className="h-3 w-3 opacity-50" fill="none" viewBox="0 0 12 12">
+                    <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {sessionDropdownOpen && (
+                  <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <div className="px-3 py-1.5 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Academic Sessions
+                    </div>
+                    {sessions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setViewingSessionId(s.id);
+                          setSessionDropdownOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer",
+                          s.id === viewingSession.id
+                            ? "bg-primary-50 text-primary-700 font-medium"
+                            : "text-gray-700 hover:bg-gray-50"
+                        )}
+                      >
+                        {s.name}
+                        {s.is_current === 1 && (
+                          <span className="ml-2 text-xs text-green-600 font-medium">(Current)</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {role === "school_admin" ? (
+              <Link
+                href="/school-admin/settings"
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-50 to-primary-100 ring-1 ring-primary-200/60 flex items-center justify-center text-primary-700 shrink-0 shadow-sm hover:ring-primary-300 hover:from-primary-100 hover:to-primary-200 transition-colors cursor-pointer"
+                title={`${institutionName} — School Profile`}
+              >
+                <BuildingLibraryIcon className="w-5 h-5" />
+              </Link>
+            ) : (
+              <div
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-50 to-primary-100 ring-1 ring-primary-200/60 flex items-center justify-center text-primary-700 shrink-0 shadow-sm"
+                title={institutionName}
+              >
+                <BuildingLibraryIcon className="w-5 h-5" />
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 top-[72px] z-30 bg-black/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -304,23 +384,17 @@ export default function DashboardLayout({
       {/* Mobile sidebar drawer */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 lg:hidden bg-gradient-to-b from-primary-600 via-primary-700 to-primary-600 transform transition-transform duration-300 ease-in-out",
+          "fixed top-[72px] bottom-0 left-0 z-40 w-64 lg:hidden bg-gradient-to-b from-primary-600 via-primary-700 to-primary-600 transform transition-transform duration-300 ease-in-out",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <button
-          onClick={() => setSidebarOpen(false)}
-          className="absolute top-4 right-4 text-primary-200 hover:text-white transition-colors cursor-pointer"
-        >
-          <XMarkIcon className="w-6 h-6" />
-        </button>
         <SidebarContent />
       </aside>
 
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:flex-col bg-gradient-to-b from-primary-600 via-primary-700 to-primary-600 transition-all duration-300",
+          "hidden lg:fixed lg:top-[72px] lg:bottom-0 lg:left-0 lg:z-30 lg:flex lg:flex-col bg-gradient-to-b from-primary-600 via-primary-700 to-primary-600 transition-all duration-300",
           sidebarCollapsed ? "lg:w-[72px]" : "lg:w-64"
         )}
       >
@@ -330,93 +404,10 @@ export default function DashboardLayout({
       {/* Main content area */}
       <div
         className={cn(
-          "transition-all duration-300",
+          "pt-[72px] transition-all duration-300",
           sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-64"
         )}
       >
-        {/* Top bar */}
-        <header className="sticky top-0 z-20 w-full">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8 bg-white shadow-sm border-b border-gray-200/60">
-            {/* Left: hamburger + page title */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
-              >
-                <Bars3Icon className="w-6 h-6" />
-              </button>
-              <h1 className="text-lg font-semibold text-primary-900">
-                {pageTitle}
-              </h1>
-              <button
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="hidden lg:flex text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {sidebarCollapsed ? (
-                  <ChevronDoubleRightIcon className="w-5 h-5" />
-                ) : (
-                  <ChevronDoubleLeftIcon className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-
-            {/* Right: session switcher + avatar */}
-            <div className="flex items-center gap-3">
-              {/* Session switcher */}
-              {sessions.length > 1 && viewingSession && (
-                <div className="relative" ref={sessionDropdownRef}>
-                  <button
-                    onClick={() => setSessionDropdownOpen(!sessionDropdownOpen)}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors cursor-pointer",
-                      isViewingPastSession
-                        ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                        : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
-                    )}
-                  >
-                    <CalendarDaysIcon className="h-4 w-4 shrink-0" />
-                    <span className="hidden sm:inline">{viewingSession.name}</span>
-                    <svg className="h-3 w-3 opacity-50" fill="none" viewBox="0 0 12 12">
-                      <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  {sessionDropdownOpen && (
-                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                      <div className="px-3 py-1.5 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Academic Sessions
-                      </div>
-                      {sessions.map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => {
-                            setViewingSessionId(s.id);
-                            setSessionDropdownOpen(false);
-                          }}
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer",
-                            s.id === viewingSession.id
-                              ? "bg-primary-50 text-primary-700 font-medium"
-                              : "text-gray-700 hover:bg-gray-50"
-                          )}
-                        >
-                          {s.name}
-                          {s.is_current === 1 && (
-                            <span className="ml-2 text-xs text-green-600 font-medium">(Current)</span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="w-9 h-9 rounded-full bg-primary-900 flex items-center justify-center text-white font-bold text-sm">
-                {initials}
-              </div>
-            </div>
-          </div>
-        </header>
-
         {/* Read-only banner for past sessions */}
         {isViewingPastSession && viewingSession && currentSession && (
           <ReadOnlyBanner

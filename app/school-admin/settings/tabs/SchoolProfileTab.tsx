@@ -43,12 +43,15 @@ const initialFormState: Partner = {
 export default function SchoolProfileTab() {
   const { isViewingPastSession } = useViewingSession();
   const [form, setForm] = useState<Partner>(initialFormState);
+  const [originalForm, setOriginalForm] = useState<Partner>(initialFormState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof Partner, string>>>({});
-  const [banner, setBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [banner, setBanner] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const [logoError, setLogoError] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
 
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     setLogoError("");
@@ -102,7 +105,9 @@ export default function SchoolProfileTab() {
       for (const key of Object.keys(profile)) {
         cleaned[key] = profile[key] ?? "";
       }
-      setForm(cleaned as unknown as Partner);
+      const loaded = cleaned as unknown as Partner;
+      setForm(loaded);
+      setOriginalForm(loaded);
     } catch {
       setBanner({ type: "error", message: "Failed to load profile. Please try again." });
     } finally {
@@ -137,6 +142,11 @@ export default function SchoolProfileTab() {
     e.preventDefault();
     if (!validate()) return;
 
+    if (!isDirty) {
+      setBanner({ type: "info", message: "No changes to save." });
+      return;
+    }
+
     try {
       setSaving(true);
       setBanner(null);
@@ -150,6 +160,7 @@ export default function SchoolProfileTab() {
         throw new Error(json?.error || "Failed to update profile");
       }
       setBanner({ type: "success", message: "Profile updated successfully." });
+      setOriginalForm(form);
       window.dispatchEvent(new CustomEvent("wiserwits:branding-updated"));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to update profile. Please try again.";
@@ -169,18 +180,6 @@ export default function SchoolProfileTab() {
 
   return (
     <form onSubmit={handleSubmit}>
-      {banner && (
-        <div
-          className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
-            banner.type === "success"
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
-          }`}
-        >
-          {banner.message}
-        </div>
-      )}
-
       <Card>
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900">School Profile</h2>
@@ -362,8 +361,27 @@ export default function SchoolProfileTab() {
           />
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <Button type="submit" variant="primary" loading={saving} disabled={isViewingPastSession}>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          {banner && (
+            <span
+              className={`text-sm font-medium ${
+                banner.type === "success"
+                  ? "text-green-700"
+                  : banner.type === "info"
+                  ? "text-gray-500"
+                  : "text-red-700"
+              }`}
+              role="status"
+            >
+              {banner.message}
+            </span>
+          )}
+          <Button
+            type="submit"
+            variant="primary"
+            loading={saving}
+            disabled={isViewingPastSession || !isDirty}
+          >
             Save Changes
           </Button>
         </div>

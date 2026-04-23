@@ -302,7 +302,7 @@ export default function StudentsPage() {
     if (!form.roll_number.trim()) {
       errors.roll_number = "Roll number is required";
     } else if (!/^\d+$/.test(form.roll_number.trim())) {
-      errors.roll_number = "Roll number must be numeric";
+      errors.roll_number = "Roll number must be positive";
     } else if (Number(form.roll_number.trim()) <= 0) {
       errors.roll_number = "Roll number must be greater than 0";
     }

@@ -15,6 +15,9 @@ import {
 import { Card, StatsCard, Button } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
+import TodayAtAGlance from "@/app/components/teacher-dashboard/TodayAtAGlance";
+import PendingTasksCard from "@/app/components/teacher-dashboard/PendingTasksCard";
+import ClassAttendanceMini from "@/app/components/teacher-dashboard/ClassAttendanceMini";
 
 interface TeacherStats {
   myClasses: number;
@@ -129,26 +132,50 @@ export default function TeacherDashboardPage() {
           ))
         ) : (
           <>
-            <StatsCard
-              title="My Classes"
-              value={stats?.myClasses ?? 0}
-              icon={<RectangleGroupIcon className="w-6 h-6" />}
-              className="bg-primary-50/50"
-            />
-            <StatsCard
-              title="My Students"
-              value={stats?.myStudents ?? 0}
-              icon={<AcademicCapIcon className="w-6 h-6" />}
-              className="bg-accent-50/50"
-            />
-            <StatsCard
-              title="Pending Marks"
-              value={stats?.pendingMarks ?? 0}
-              icon={<ChartBarIcon className="w-6 h-6" />}
-              className="bg-orange-50/50"
-            />
+            <Link
+              href="/teacher/classes"
+              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <StatsCard
+                title="My Classes"
+                value={stats?.myClasses ?? 0}
+                icon={<RectangleGroupIcon className="w-6 h-6" />}
+                className="bg-primary-50/50 cursor-pointer hover:border-primary-200"
+              />
+            </Link>
+            <Link
+              href="/teacher/students"
+              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <StatsCard
+                title="My Students"
+                value={stats?.myStudents ?? 0}
+                icon={<AcademicCapIcon className="w-6 h-6" />}
+                className="bg-accent-50/50 cursor-pointer hover:border-accent-200"
+              />
+            </Link>
+            <Link
+              href="/teacher/marks"
+              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <StatsCard
+                title="Pending Marks"
+                value={stats?.pendingMarks ?? 0}
+                icon={<ChartBarIcon className="w-6 h-6" />}
+                className="bg-orange-50/50 cursor-pointer hover:border-orange-200"
+              />
+            </Link>
           </>
         )}
+      </div>
+
+      {/* Today at a glance: timetable strip + holiday/exam banners */}
+      <TodayAtAGlance />
+
+      {/* Pending tasks + class attendance trend */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <PendingTasksCard />
+        <ClassAttendanceMini />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">

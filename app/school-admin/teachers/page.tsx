@@ -16,10 +16,12 @@ import {
   MagnifyingGlassIcon,
   TrashIcon,
   EyeIcon,
+  EyeSlashIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 
 interface Teacher {
   user_id: number;
@@ -70,6 +72,7 @@ export default function TeachersListPage() {
   const [form, setForm] = useState<TeacherForm>(emptyForm);
   const [formErrors, setFormErrors] = useState<Partial<TeacherForm>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const fetchTeachers = useCallback(async () => {
     try {
@@ -109,7 +112,7 @@ export default function TeachersListPage() {
     }
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (): { valid: boolean; errors: Partial<TeacherForm> } => {
     const errors: Partial<TeacherForm> = {};
     if (!form.name.trim()) errors.name = "Name is required";
     if (!form.email.trim()) {
@@ -132,11 +135,27 @@ export default function TeachersListPage() {
       }
     }
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { valid: Object.keys(errors).length === 0, errors };
   };
 
   const handleAdd = async () => {
-    if (!validateForm()) return;
+    const { valid, errors } = validateForm();
+    if (!valid) {
+      // Visual order inside the Add Teacher modal.
+      scrollToFirstError(
+        [
+          "name",
+          "email",
+          "password",
+          "phone_number",
+          "subject_specialization",
+          "qualification",
+          "date_of_joining",
+        ],
+        { errors }
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const body: Record<string, string | number> = {
@@ -159,6 +178,7 @@ export default function TeachersListPage() {
       if (res.ok) {
         setIsAddOpen(false);
         setForm(emptyForm);
+        setShowPassword(false);
         setFormErrors({});
         fetchTeachers();
       }
@@ -277,15 +297,43 @@ export default function TeachersListPage() {
         placeholder="email@example.com"
         error={formErrors.email}
       />
-      <Input
-        label="Password *"
-        name="password"
-        type="password"
-        value={form.password}
-        onChange={handleFormChange}
-        placeholder="Password (min 6 characters)"
-        error={formErrors.password}
-      />
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="password" className="text-sm font-medium text-gray-700">
+          Password *
+        </label>
+        <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={form.password}
+            onChange={handleFormChange}
+            placeholder="Password (min 6 characters)"
+            className={`w-full border rounded-lg pl-4 pr-10 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+              formErrors.password
+                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                : "border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+            }`}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            title={showPassword ? "Hide password" : "Show password"}
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+          >
+            {showPassword ? (
+              <EyeSlashIcon className="h-5 w-5" />
+            ) : (
+              <EyeIcon className="h-5 w-5" />
+            )}
+          </button>
+        </div>
+        {formErrors.password && (
+          <p className="text-sm text-red-600">{formErrors.password}</p>
+        )}
+      </div>
       <Input
         label="Phone Number"
         name="phone_number"

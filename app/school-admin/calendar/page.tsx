@@ -326,7 +326,7 @@ export default function CalendarPage() {
   const workingDays = days.filter((d) => !d.is_holiday).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       <h1 className="text-2xl font-bold text-primary-900">School Calendar</h1>
 
       {/* Session selector */}

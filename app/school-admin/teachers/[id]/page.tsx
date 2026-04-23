@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 import {
   Button,
   Input,
@@ -226,7 +227,7 @@ export default function TeacherDetailPage() {
     }
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (): { valid: boolean; errors: Record<string, string> } => {
     const errors: Record<string, string> = {};
     if (!form.name.trim()) errors.name = "Name is required";
     if (form.phone_number.trim() && !/^\d{10}$/.test(form.phone_number.trim())) {
@@ -239,11 +240,27 @@ export default function TeacherDetailPage() {
       }
     }
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { valid: Object.keys(errors).length === 0, errors };
   };
 
   const handleSave = async () => {
-    if (!teacher || !validateForm()) return;
+    if (!teacher) return;
+    const { valid, errors } = validateForm();
+    if (!valid) {
+      scrollToFirstError(
+        [
+          "name",
+          "phone_number",
+          "subject_specialization",
+          "qualification",
+          "date_of_joining",
+          "bio",
+          "address",
+        ],
+        { errors }
+      );
+      return;
+    }
     setSaving(true);
     try {
       const body: Record<string, string | number> = { name: form.name };

@@ -13,6 +13,7 @@ import {
   LoadingSkeleton,
 } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 
 interface Scheme {
   id: string;
@@ -138,18 +139,22 @@ export default function GradingTab() {
     setShowSchemeModal(true);
   }
 
-  function validateSchemeForm(): boolean {
+  function validateSchemeForm(): { valid: boolean; errors: Record<string, string> } {
     const errors: Record<string, string> = {};
     if (!schemeForm.name.trim()) {
       errors.name = "Scheme name is required";
     }
     setSchemeErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { valid: Object.keys(errors).length === 0, errors };
   }
 
   async function handleCreateScheme(e: React.FormEvent) {
     e.preventDefault();
-    if (!validateSchemeForm()) return;
+    const { valid, errors } = validateSchemeForm();
+    if (!valid) {
+      scrollToFirstError(["name", "type"], { errors });
+      return;
+    }
 
     try {
       setSavingScheme(true);
@@ -195,7 +200,7 @@ export default function GradingTab() {
     setShowRangeModal(true);
   }
 
-  function validateRangeForm(): boolean {
+  function validateRangeForm(): { valid: boolean; errors: Record<string, string> } {
     const errors: Record<string, string> = {};
     if (!rangeForm.grade_label.trim()) {
       errors.grade_label = "Grade label is required";
@@ -226,12 +231,20 @@ export default function GradingTab() {
       errors.sort_order = "Must be a valid number";
     }
     setRangeErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { valid: Object.keys(errors).length === 0, errors };
   }
 
   async function handleCreateRange(e: React.FormEvent) {
     e.preventDefault();
-    if (!validateRangeForm() || !scheme) return;
+    if (!scheme) return;
+    const { valid, errors } = validateRangeForm();
+    if (!valid) {
+      scrollToFirstError(
+        ["grade_label", "min_percentage", "max_percentage", "gpa_value", "sort_order"],
+        { errors }
+      );
+      return;
+    }
 
     try {
       setSavingRange(true);

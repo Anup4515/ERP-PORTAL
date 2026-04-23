@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Card, Input, Button, LoadingSkeleton } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 
 const MAX_LOGO_BYTES = 500 * 1024;
 
@@ -125,7 +126,7 @@ export default function SchoolProfileTab() {
     }
   }
 
-  function validate(): boolean {
+  function validate(): { valid: boolean; errors: Partial<Record<keyof Partner, string>> } {
     const newErrors: Partial<Record<keyof Partner, string>> = {};
     if (!form.partner_name.trim()) {
       newErrors.partner_name = "Partner name is required";
@@ -137,12 +138,19 @@ export default function SchoolProfileTab() {
       newErrors.pincode = "Enter a valid 6-digit pincode";
     }
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return { valid: Object.keys(newErrors).length === 0, errors: newErrors };
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
+    const { valid, errors: freshErrors } = validate();
+    if (!valid) {
+      scrollToFirstError(
+        ["partner_name", "contact_email", "contact_phone", "pincode", "registration_number", "website"],
+        { errors: freshErrors }
+      );
+      return;
+    }
 
     if (!isDirty) {
       setBanner({ type: "info", message: "No changes to save." });

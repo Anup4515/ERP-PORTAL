@@ -63,11 +63,16 @@ export default function AttendancePage() {
         },
       ];
     }
+    // Upper bound: the current month, but capped at the session end.
+    // Future in-session months aren't attended yet, so hide them.
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const effectiveEnd =
+      currentMonthStart < sessionEnd ? currentMonthStart : sessionEnd;
     const out: { value: string; label: string }[] = [];
     let y = sessionStart.getFullYear();
     let m = sessionStart.getMonth();
-    const endY = sessionEnd.getFullYear();
-    const endM = sessionEnd.getMonth();
+    const endY = effectiveEnd.getFullYear();
+    const endM = effectiveEnd.getMonth();
     while (y < endY || (y === endY && m <= endM)) {
       out.push({
         value: `${y}-${String(m + 1).padStart(2, "0")}`,

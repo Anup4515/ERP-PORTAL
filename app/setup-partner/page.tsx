@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { Card, Button, Input, Select } from "@/app/components/shared";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 
 const MAX_LOGO_BYTES = 500 * 1024; // 500 KB
 
@@ -101,10 +102,15 @@ export default function SetupPartnerPage() {
     }
   }
 
-  function validate(): boolean {
+  function validate(): {
+    valid: boolean;
+    errors: Partial<Record<keyof FormData, string>>;
+    hasLogoError: boolean;
+  } {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
+    const hasLogoError = !logo;
 
-    if (!logo) {
+    if (hasLogoError) {
       setLogoError("Institution logo is required");
     }
     if (!form.partner_name.trim()) {
@@ -132,68 +138,35 @@ export default function SetupPartnerPage() {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0 && !!logo;
-  }
-
-  function scrollToFirstError(firstErrorKey: string) {
-    // Try to find by id (inputs use `id={name}`, logo section uses `field-logo`)
-    const selector =
-      firstErrorKey === "logo"
-        ? "#field-logo"
-        : `#${CSS.escape(firstErrorKey)}`;
-    const el = document.querySelector<HTMLElement>(selector);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      // Focus the input if it's focusable
-      if (
-        el instanceof HTMLInputElement ||
-        el instanceof HTMLSelectElement ||
-        el instanceof HTMLTextAreaElement
-      ) {
-        el.focus({ preventScroll: true });
-      }
-    }
+    return {
+      valid: Object.keys(newErrors).length === 0 && !hasLogoError,
+      errors: newErrors,
+      hasLogoError,
+    };
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) {
-      // Order: logo → partner_name → partner_type → contact_email → contact_phone → pincode → website
-      const order: (keyof FormData | "logo")[] = [
-        "logo",
-        "partner_name",
-        "partner_type",
-        "contact_email",
-        "contact_phone",
-        "pincode",
-        "website",
-      ];
-      // Re-read errors via closure-safe check using a microtask: state may not be flushed yet,
-      // so compute errors synchronously with the same rules used in validate().
-      const hasLogoError = !logo;
-      const firstKey = order.find((k) => {
-        if (k === "logo") return hasLogoError;
-        const val = form[k as keyof FormData];
-        switch (k) {
-          case "partner_name":
-            return !val.trim();
-          case "partner_type":
-            return !val;
-          case "contact_email":
-            return !val.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-          case "contact_phone": {
-            const phone = val.replace(/\D/g, "");
-            return !val.trim() || phone.length !== 10;
-          }
-          case "pincode":
-            return !!val && !/^\d{6}$/.test(val.trim());
-          case "website":
-            return !!val && !/^https?:\/\/[^\s]+\.[^\s]+$/i.test(val.trim());
-          default:
-            return false;
+    const { valid, errors: freshErrors, hasLogoError } = validate();
+    if (!valid) {
+      // Visual order of fields; logo is a non-input wrapper, so map it.
+      scrollToFirstError(
+        [
+          "logo",
+          "partner_name",
+          "partner_type",
+          "contact_email",
+          "contact_phone",
+          "pincode",
+          "website",
+        ],
+        {
+          // Use the freshly-computed errors from validate() — React state
+          // hasn't flushed yet, so reading `errors` here would be stale.
+          errors: { ...freshErrors, logo: hasLogoError ? "required" : undefined },
+          selectorMap: { logo: "#field-logo" },
         }
-      });
-      if (firstKey) scrollToFirstError(firstKey);
+      );
       return;
     }
 

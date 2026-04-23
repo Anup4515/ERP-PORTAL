@@ -36,6 +36,22 @@ function displayMonth(ym: string) {
   const [y, m] = ym.split("-").map(Number);
   return new Date(y, m - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
+/** Convert "YYYY-MM" into an absolute month index (y*12 + m-1) for comparison. */
+function monthIndex(ym: string): number {
+  const [y, m] = ym.split("-").map(Number);
+  return y * 12 + (m - 1);
+}
+function parseSessionMonth(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const m = String(raw).match(/^(\d{4})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}` : null;
+}
+function clampMonth(ym: string, min: string | null, max: string | null): string {
+  const idx = monthIndex(ym);
+  if (min && idx < monthIndex(min)) return min;
+  if (max && idx > monthIndex(max)) return max;
+  return ym;
+}
 function ratingBg(val: number | null | undefined) {
   if (val == null) return "";
   if (val <= 3) return "bg-red-50 text-red-700";
@@ -51,7 +67,30 @@ export default function AdminHolisticPage() {
 
   const [classSectionId, setClassSectionId] = useState("");
   const [parameterId, setParameterId] = useState("");
-  const [month, setMonth] = useState(formatMonth(new Date()));
+
+  // Month bounds: min = session start, max = min(current month, session end).
+  // Teachers/admins can't look at future in-session months (nothing rated yet).
+  const sessionStartMonth = parseSessionMonth(viewingSession?.start_date);
+  const sessionEndMonth = parseSessionMonth(viewingSession?.end_date);
+  const currentMonthStr = formatMonth(new Date());
+  const maxAllowedMonth =
+    sessionEndMonth && monthIndex(sessionEndMonth) < monthIndex(currentMonthStr)
+      ? sessionEndMonth
+      : sessionStartMonth
+        ? currentMonthStr
+        : currentMonthStr;
+
+  const [month, setMonth] = useState(() =>
+    clampMonth(currentMonthStr, sessionStartMonth, maxAllowedMonth)
+  );
+
+  // If the session switches, re-clamp the selected month into the new range.
+  useEffect(() => {
+    setMonth((prev) => clampMonth(prev, sessionStartMonth, maxAllowedMonth));
+  }, [sessionStartMonth, maxAllowedMonth]);
+
+  const canGoPrev = !sessionStartMonth || monthIndex(month) > monthIndex(sessionStartMonth);
+  const canGoNext = !maxAllowedMonth || monthIndex(month) < monthIndex(maxAllowedMonth);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [subParams, setSubParams] = useState<SubParameter[]>([]);
@@ -190,13 +229,23 @@ export default function AdminHolisticPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setMonth((m) => shiftMonth(m, -1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
+          <button
+            onClick={() => canGoPrev && setMonth((m) => shiftMonth(m, -1))}
+            disabled={!canGoPrev}
+            title={canGoPrev ? "Previous month" : "Already at session start"}
+            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
             <ChevronLeftIcon className="w-4 h-4" />
           </button>
           <span className="text-sm font-semibold text-primary-900 min-w-[120px] text-center">
             {displayMonth(month)}
           </span>
-          <button onClick={() => setMonth((m) => shiftMonth(m, 1))} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
+          <button
+            onClick={() => canGoNext && setMonth((m) => shiftMonth(m, 1))}
+            disabled={!canGoNext}
+            title={canGoNext ? "Next month" : "Future months are not available"}
+            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
             <ChevronRightIcon className="w-4 h-4" />
           </button>
         </div>

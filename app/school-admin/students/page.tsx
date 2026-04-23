@@ -17,6 +17,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 
 interface ClassSection {
   class_section_id: string;
@@ -285,7 +286,7 @@ export default function StudentsPage() {
     }
   }
 
-  function validateForm(): boolean {
+  function validateForm(): { valid: boolean; errors: Record<string, string> } {
     const errors: Record<string, string> = {};
     if (!form.first_name.trim()) errors.first_name = "First name is required";
     if (!form.last_name.trim()) errors.last_name = "Last name is required";
@@ -302,6 +303,11 @@ export default function StudentsPage() {
       errors.roll_number = "Roll number is required";
     } else if (!/^\d+$/.test(form.roll_number.trim())) {
       errors.roll_number = "Roll number must be numeric";
+    } else if (Number(form.roll_number.trim()) <= 0) {
+      errors.roll_number = "Roll number must be greater than 0";
+    }
+    if (!form.student_type) {
+      errors.student_type = "Student type is required";
     }
     if (form.date_of_birth) {
       const dob = new Date(form.date_of_birth);
@@ -310,11 +316,30 @@ export default function StudentsPage() {
       }
     }
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { valid: Object.keys(errors).length === 0, errors };
   }
 
   async function handleAddStudent() {
-    if (!validateForm()) return;
+    const { valid, errors } = validateForm();
+    if (!valid) {
+      scrollToFirstError(
+        [
+          "first_name",
+          "last_name",
+          "email",
+          "class_section_id",
+          "gender",
+          "date_of_birth",
+          "phone",
+          "father_name",
+          "mother_name",
+          "roll_number",
+          "student_type",
+        ],
+        { errors }
+      );
+      return;
+    }
     setSaving(true);
     try {
       const body: Record<string, string> = {
@@ -572,6 +597,8 @@ export default function StudentsPage() {
             <Input
               label="Roll Number *"
               name="roll_number"
+              type="number"
+              min={1}
               inputMode="numeric"
               value={form.roll_number}
               onChange={(e) => updateForm("roll_number", e.target.value)}
@@ -595,11 +622,13 @@ export default function StudentsPage() {
           </div>
 
           <Select
-            label="Student Type"
+            label="Student Type *"
+            id="student_type"
             name="student_type"
             options={STUDENT_TYPE_OPTIONS}
             value={form.student_type}
             onChange={(e) => updateForm("student_type", e.target.value)}
+            error={formErrors.student_type}
           />
 
           <div className="flex justify-end gap-3 pt-2">

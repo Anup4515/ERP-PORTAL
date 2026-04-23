@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -204,7 +205,7 @@ export default function StudentDetailPage() {
     }
   }
 
-  function validateEditForm(): boolean {
+  function validateEditForm(): { valid: boolean; errors: Record<string, string> } {
     const errors: Record<string, string> = {};
     if (!editForm.first_name?.trim()) errors.first_name = "First name is required";
     if (!editForm.last_name?.trim()) errors.last_name = "Last name is required";
@@ -229,11 +230,32 @@ export default function StudentDetailPage() {
       }
     }
     setEditErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { valid: Object.keys(errors).length === 0, errors };
   }
 
   async function handleSave() {
-    if (!validateEditForm()) return;
+    const { valid, errors } = validateEditForm();
+    if (!valid) {
+      scrollToFirstError(
+        [
+          "first_name",
+          "last_name",
+          "email",
+          "phone",
+          "gender",
+          "date_of_birth",
+          "father_name",
+          "mother_name",
+          "guardian_phone",
+          "address",
+          "city",
+          "state",
+          "postal_code",
+        ],
+        { errors }
+      );
+      return;
+    }
     setSaving(true);
     setSaveError("");
     try {
@@ -259,6 +281,23 @@ export default function StudentDetailPage() {
   async function handleAddEnrollment() {
     if (!enrollForm.class_section_id) {
       setEnrollError("Class & section is required");
+      return;
+    }
+    const roll = enrollForm.roll_number.trim();
+    if (!roll) {
+      setEnrollError("Roll number is required");
+      return;
+    }
+    if (!/^\d+$/.test(roll)) {
+      setEnrollError("Roll number must be numeric");
+      return;
+    }
+    if (Number(roll) <= 0) {
+      setEnrollError("Roll number must be greater than 0");
+      return;
+    }
+    if (!enrollForm.student_type) {
+      setEnrollError("Student type is required");
       return;
     }
     setEnrollSaving(true);
@@ -683,8 +722,11 @@ export default function StudentDetailPage() {
               />
 
               <Input
-                label="Roll Number"
+                label="Roll Number *"
                 name="roll_number"
+                type="number"
+                min={1}
+                inputMode="numeric"
                 value={enrollForm.roll_number}
                 onChange={(e) =>
                   setEnrollForm((prev) => ({ ...prev, roll_number: e.target.value }))
@@ -692,7 +734,7 @@ export default function StudentDetailPage() {
               />
 
               <Select
-                label="Student Type"
+                label="Student Type *"
                 name="student_type"
                 options={STUDENT_TYPE_OPTIONS}
                 value={enrollForm.student_type}

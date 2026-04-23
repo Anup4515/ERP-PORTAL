@@ -18,6 +18,7 @@ import {
   UsersIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 
 interface Staff {
   id: number;
@@ -133,7 +134,18 @@ export default function StaffPage() {
     }
   };
 
-  const validate = () => {
+  const STAFF_FIELD_ORDER = [
+    "name",
+    "designation",
+    "department",
+    "phone",
+    "email",
+    "qualification",
+    "address",
+    "date_of_joining",
+  ];
+
+  const validate = (): { valid: boolean; errors: Record<string, string> } => {
     const errors: Record<string, string> = {};
     if (!form.name.trim()) {
       errors.name = "Name is required";
@@ -156,11 +168,15 @@ export default function StaffPage() {
       }
     }
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return { valid: Object.keys(errors).length === 0, errors };
   };
 
   const handleAdd = async () => {
-    if (!validate()) return;
+    const { valid, errors } = validate();
+    if (!valid) {
+      scrollToFirstError(STAFF_FIELD_ORDER, { errors });
+      return;
+    }
     setSubmitting(true);
     try {
       const body: Record<string, string | number | null> = {
@@ -208,7 +224,12 @@ export default function StaffPage() {
   };
 
   const handleEdit = async () => {
-    if (!validate() || !selectedStaff) return;
+    if (!selectedStaff) return;
+    const { valid, errors } = validate();
+    if (!valid) {
+      scrollToFirstError(STAFF_FIELD_ORDER, { errors });
+      return;
+    }
     setSubmitting(true);
     try {
       const body: Record<string, string | number | null> = {

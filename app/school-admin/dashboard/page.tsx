@@ -13,6 +13,8 @@ import {
 import { Card, StatsCard } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
+import AttendanceTrendChart from "@/app/components/dashboard/AttendanceTrendChart";
+import ClassBreakdownCard from "@/app/components/dashboard/ClassBreakdownCard";
 
 interface UpcomingExam {
   id: number;
@@ -129,37 +131,63 @@ export default function SchoolAdminDashboardPage() {
           </>
         ) : (
           <>
-            <StatsCard
-              title="Total Students"
-              value={stats?.totalStudents ?? 0}
-              icon={<AcademicCapIcon className="w-6 h-6" />}
-              className="bg-primary-50/50"
-            />
-            <StatsCard
-              title="Total Teachers"
-              value={stats?.totalTeachers ?? 0}
-              icon={<UserGroupIcon className="w-6 h-6" />}
-              className="bg-accent-50/50"
-            />
-            <StatsCard
-              title="Today's Attendance"
-              value={
-                stats?.todayAttendance != null
-                  ? `${stats.todayAttendance}%`
-                  : "0%"
-              }
-              icon={<ClipboardDocumentCheckIcon className="w-6 h-6" />}
-              className="bg-green-50/50"
-            />
-            <StatsCard
-              title="Upcoming Exams"
-              value={stats?.upcomingExams ?? 0}
-              icon={<DocumentTextIcon className="w-6 h-6" />}
-              className="bg-blue-50/50"
-            />
+            <Link
+              href="/school-admin/students"
+              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <StatsCard
+                title="Total Students"
+                value={stats?.totalStudents ?? 0}
+                icon={<AcademicCapIcon className="w-6 h-6" />}
+                className="bg-primary-50/50 cursor-pointer hover:border-primary-200"
+              />
+            </Link>
+            <Link
+              href="/school-admin/teachers"
+              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <StatsCard
+                title="Total Teachers"
+                value={stats?.totalTeachers ?? 0}
+                icon={<UserGroupIcon className="w-6 h-6" />}
+                className="bg-accent-50/50 cursor-pointer hover:border-accent-200"
+              />
+            </Link>
+            <Link
+              href="/school-admin/attendance"
+              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <StatsCard
+                title="Today's Attendance"
+                value={
+                  stats?.todayAttendance != null
+                    ? `${stats.todayAttendance}%`
+                    : "0%"
+                }
+                icon={<ClipboardDocumentCheckIcon className="w-6 h-6" />}
+                className="bg-green-50/50 cursor-pointer hover:border-green-200"
+              />
+            </Link>
+            <Link
+              href="/school-admin/exams"
+              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <StatsCard
+                title="Upcoming Exams"
+                value={stats?.upcomingExams ?? 0}
+                icon={<DocumentTextIcon className="w-6 h-6" />}
+                className="bg-blue-50/50 cursor-pointer hover:border-blue-200"
+              />
+            </Link>
           </>
         )}
       </div>
+
+      {/* Attendance trend chart */}
+      <AttendanceTrendChart />
+
+      {/* Class-wise breakdown */}
+      <ClassBreakdownCard />
 
       {/* Bottom section: two cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">

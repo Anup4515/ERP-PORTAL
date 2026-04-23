@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Button,
   Input,
@@ -92,12 +93,14 @@ const LIMIT = 50;
 
 export default function StudentsPage() {
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const searchParams = useSearchParams();
+  const initialClassSectionId = searchParams.get("class_section_id") || "";
   const [classes, setClasses] = useState<ClassWithSections[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [filterClassSectionId, setFilterClassSectionId] = useState("");
+  const [filterClassSectionId, setFilterClassSectionId] = useState(initialClassSectionId);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
 

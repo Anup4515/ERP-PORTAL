@@ -12,18 +12,11 @@ import {
   ArrowRightIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { Card, StatsCard, Button } from "@/app/components/shared";
+import { Card, Button } from "@/app/components/shared";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 import TodayAtAGlance from "@/app/components/teacher-dashboard/TodayAtAGlance";
-import PendingTasksCard from "@/app/components/teacher-dashboard/PendingTasksCard";
 import ClassAttendanceMini from "@/app/components/teacher-dashboard/ClassAttendanceMini";
-
-interface TeacherStats {
-  myClasses: number;
-  myStudents: number;
-  pendingMarks: number;
-}
 
 interface AssignedClass {
   class_section_id: number;
@@ -35,9 +28,8 @@ interface AssignedClass {
 
 export default function TeacherDashboardPage() {
   const router = useRouter();
-  const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
+  const { viewingSession, withSessionId } = useViewingSession();
   const { label } = usePartnerBranding();
-  const [stats, setStats] = useState<TeacherStats | null>(null);
   const [classes, setClasses] = useState<AssignedClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
@@ -50,13 +42,8 @@ export default function TeacherDashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [statsRes, classesRes] = await Promise.all([
-          fetch(withSessionId("/api/dashboard")),
-          fetch(withSessionId("/api/teacher/classes")),
-        ]);
-        const statsJson = await statsRes.json();
+        const classesRes = await fetch(withSessionId("/api/teacher/classes"));
         const classesJson = await classesRes.json();
-        if (statsJson.data) setStats(statsJson.data);
         if (classesJson.data) setClasses(classesJson.data);
       } catch {
         /* ignore */
@@ -116,68 +103,7 @@ export default function TeacherDashboardPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-        {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i}>
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-gray-200 animate-pulse shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-7 w-16 bg-gray-200 rounded animate-pulse" />
-                </div>
-              </div>
-            </Card>
-          ))
-        ) : (
-          <>
-            <Link
-              href="/teacher/classes"
-              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <StatsCard
-                title="My Classes"
-                value={stats?.myClasses ?? 0}
-                icon={<RectangleGroupIcon className="w-6 h-6" />}
-                className="bg-primary-50/50 cursor-pointer hover:border-primary-200"
-              />
-            </Link>
-            <Link
-              href="/teacher/students"
-              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <StatsCard
-                title="My Students"
-                value={stats?.myStudents ?? 0}
-                icon={<AcademicCapIcon className="w-6 h-6" />}
-                className="bg-accent-50/50 cursor-pointer hover:border-accent-200"
-              />
-            </Link>
-            <Link
-              href="/teacher/marks"
-              className="block rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <StatsCard
-                title="Pending Marks"
-                value={stats?.pendingMarks ?? 0}
-                icon={<ChartBarIcon className="w-6 h-6" />}
-                className="bg-orange-50/50 cursor-pointer hover:border-orange-200"
-              />
-            </Link>
-          </>
-        )}
-      </div>
-
-      {/* Today at a glance: timetable strip + holiday/exam banners */}
-      <TodayAtAGlance />
-
-      {/* Pending tasks + class attendance trend */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <PendingTasksCard />
-        <ClassAttendanceMini />
-      </div>
-
+      {/* Quick Actions + My Classes at the top */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Quick Actions */}
         <Card>
@@ -267,6 +193,12 @@ export default function TeacherDashboardPage() {
           )}
         </Card>
       </div>
+
+      {/* Today at a glance: timetable strip + holiday/exam banners */}
+      <TodayAtAGlance />
+
+      {/* Class attendance 7-day trend */}
+      <ClassAttendanceMini />
     </div>
   );
 }

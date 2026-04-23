@@ -15,6 +15,7 @@ import {
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
+import { scrollToFirstError } from "@/app/lib/form-scroll";
 
 interface AssignedClass {
   class_section_id: number;
@@ -154,18 +155,44 @@ function TeacherStudentsPage() {
   };
 
   const handleAddStudent = async () => {
-    if (!addForm.first_name || !addForm.last_name || !addForm.email) {
-      setAddError("First name, last name, and email are required.");
+    // Field-by-field validation, in the visual order of the modal.
+    let invalidField: string | null = null;
+    let message = "";
+    if (!addForm.first_name.trim()) {
+      invalidField = "first_name";
+      message = "First name is required.";
+    } else if (!addForm.last_name.trim()) {
+      invalidField = "last_name";
+      message = "Last name is required.";
+    } else if (!addForm.email.trim()) {
+      invalidField = "email";
+      message = "Email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email.trim())) {
+      invalidField = "email";
+      message = "Enter a valid email address.";
+    } else if (addForm.phone.trim() && !/^\d{10}$/.test(addForm.phone.trim())) {
+      invalidField = "phone";
+      message = "Phone number must be exactly 10 digits.";
+    } else if (!addForm.roll_number.trim()) {
+      invalidField = "roll_number";
+      message = "Roll number is required.";
+    } else if (!/^\d+$/.test(addForm.roll_number.trim())) {
+      invalidField = "roll_number";
+      message = "Roll number must be a positive integer.";
+    } else if (Number(addForm.roll_number.trim()) <= 0) {
+      invalidField = "roll_number";
+      message = "Roll number must be greater than 0.";
+    } else if (addForm.guardian_phone.trim() && !/^\d{10}$/.test(addForm.guardian_phone.trim())) {
+      invalidField = "guardian_phone";
+      message = "Guardian phone must be exactly 10 digits.";
+    }
+
+    if (invalidField) {
+      setAddError(message);
+      scrollToFirstError([invalidField]);
       return;
     }
-    if (!addForm.roll_number.trim()) {
-      setAddError("Roll number is required.");
-      return;
-    }
-    if (!/^\d+$/.test(addForm.roll_number.trim())) {
-      setAddError("Roll number must be numeric.");
-      return;
-    }
+
     setAddSaving(true);
     setAddError("");
     try {

@@ -205,8 +205,8 @@ export default function TodayAtAGlance() {
               return (
                 <Link
                   key={`${s.period_number}-${i}`}
-                  href={`/teacher/attendance?class_section_id=${s.class_section_id}`}
-                  title={`Mark attendance · ${s.class_name} ${s.section_name}`}
+                  href="/teacher/timetable"
+                  title={`Open full timetable · ${s.class_name} ${s.section_name}`}
                   className={cn(
                     "min-w-[180px] shrink-0 rounded-lg px-3 py-2.5 border transition-all",
                     isCurrent &&

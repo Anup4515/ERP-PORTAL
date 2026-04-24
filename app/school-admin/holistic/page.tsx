@@ -294,7 +294,9 @@ export default function AdminHolisticPage() {
                       {subParams.map((sp) => {
                         const key = `${student.enrollment_id}-${sp.id}`;
                         const entry = ratings[key];
-                        const val = entry?.rating_value;
+                        // MySQL DECIMAL comes back as "5.00" strings — normalise to an integer.
+                        const raw = entry?.rating_value;
+                        const val = raw == null ? null : Math.round(Number(raw));
                         return (
                           <td key={sp.id} className="px-2 py-2.5 text-center border-b border-r border-gray-100">
                             {val != null ? (

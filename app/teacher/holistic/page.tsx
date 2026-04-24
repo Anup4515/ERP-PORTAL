@@ -169,7 +169,13 @@ export default function TeacherHolisticPage() {
         const c: Record<string, string> = {};
         for (const [key, val] of Object.entries(json.data.ratings || {})) {
           const entry = val as RatingEntry;
-          r[key] = entry.rating_value ?? null;
+          // MySQL DECIMAL returns "5.00" strings via mysql2. Coerce + round so
+          // the input renders an integer (no trailing zeros, no decimals).
+          const raw = entry.rating_value;
+          r[key] =
+            raw == null || raw === ("" as unknown as number)
+              ? null
+              : Math.round(Number(raw));
           // Extract comments — stored on first sub-param key per student
           const enrollId = key.split("-")[0];
           if (entry.comments && !c[enrollId]) c[enrollId] = entry.comments;
@@ -190,7 +196,15 @@ export default function TeacherHolisticPage() {
 
   const updateRating = (enrollmentId: number, subParamId: number, value: string) => {
     const key = `${enrollmentId}-${subParamId}`;
-    const num = value === "" ? null : Math.min(10, Math.max(0, parseFloat(value)));
+    // Holistic ratings are whole numbers 0-10 — reject decimals / non-digits.
+    const cleaned = value.replace(/\D/g, "");
+    let num: number | null;
+    if (cleaned === "") {
+      num = null;
+    } else {
+      const parsed = parseInt(cleaned, 10);
+      num = isNaN(parsed) ? null : Math.min(10, Math.max(0, parsed));
+    }
     setRatings((prev) => ({ ...prev, [key]: num }));
   };
 
@@ -198,13 +212,16 @@ export default function TeacherHolisticPage() {
     setComments((prev) => ({ ...prev, [String(enrollmentId)]: value }));
   };
 
+  const [defaultValue, setDefaultValue] = useState<number>(5);
+
   const handleSetDefault = () => {
+    const v = Math.min(10, Math.max(1, Math.round(defaultValue)));
     setRatings((prev) => {
       const next = { ...prev };
       for (const student of students) {
         for (const sp of subParams) {
           const key = `${student.enrollment_id}-${sp.id}`;
-          if (next[key] == null) next[key] = 5;
+          if (next[key] == null) next[key] = v;
         }
       }
       return next;
@@ -223,7 +240,10 @@ export default function TeacherHolisticPage() {
         setRatings((curr) => {
           const next = { ...curr };
           for (const [key, val] of Object.entries(prev)) {
-            if (next[key] == null) next[key] = val.rating_value ?? null;
+            if (next[key] == null) {
+              const raw = val.rating_value;
+              next[key] = raw == null ? null : Math.round(Number(raw));
+            }
           }
           return next;
         });
@@ -377,9 +397,43 @@ export default function TeacherHolisticPage() {
       ) : (
         <>
           {/* Actions */}
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={handleSetDefault} disabled={isViewingPastSession}>Set Default (5)</Button>
-            <Button variant="outline" size="sm" onClick={handleCopyPrev} disabled={isViewingPastSession}>Copy from Previous Month</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-stretch rounded-lg overflow-hidden shadow-sm ring-1 ring-accent-400/60">
+              <input
+                type="number"
+                min={1}
+                max={10}
+                step={1}
+                value={defaultValue}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setDefaultValue(0);
+                    return;
+                  }
+                  const parsed = parseInt(raw, 10);
+                  if (!isNaN(parsed)) setDefaultValue(parsed);
+                }}
+                onBlur={() =>
+                  setDefaultValue((v) => Math.min(10, Math.max(1, v || 1)))
+                }
+                disabled={isViewingPastSession}
+                aria-label="Default rating value"
+                className="w-14 px-2 text-sm font-semibold text-primary-900 bg-white focus:outline-none focus:ring-2 focus:ring-accent-400 disabled:bg-gray-50 disabled:text-gray-400"
+              />
+              <button
+                type="button"
+                onClick={handleSetDefault}
+                disabled={isViewingPastSession}
+                title={`Fill empty cells with ${defaultValue}`}
+                className="px-4 text-sm font-bold text-primary-900 bg-accent-400 hover:bg-accent-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
+              >
+                Set Default
+              </button>
+            </div>
+            {canGoPrev && (
+              <Button variant="outline" size="sm" onClick={handleCopyPrev} disabled={isViewingPastSession}>Copy from Previous Month</Button>
+            )}
             <Button variant="primary" size="sm" loading={saving} onClick={handleSave} disabled={isViewingPastSession}>Save Ratings</Button>
           </div>
 
@@ -417,9 +471,14 @@ export default function TeacherHolisticPage() {
                               type="number"
                               min={0}
                               max={10}
-                              step={0.5}
+                              step={1}
+                              inputMode="numeric"
                               value={val != null ? val : ""}
                               onChange={(e) => updateRating(student.enrollment_id, sp.id, e.target.value)}
+                              onKeyDown={(e) => {
+                                // Block "." and "," so the decimal key is ignored entirely.
+                                if (e.key === "." || e.key === ",") e.preventDefault();
+                              }}
                               className={`w-14 text-center text-sm px-1 py-1.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 ${ratingBg(val)}`}
                             />
                           </td>

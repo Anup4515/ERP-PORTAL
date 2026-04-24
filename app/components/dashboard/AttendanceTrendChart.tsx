@@ -3,6 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { Card } from "@/app/components/shared";
 import { cn } from "@/app/lib/utils";
+import {
+  ChartBarIcon,
+  PresentationChartLineIcon,
+  CalendarDaysIcon,
+  TrophyIcon,
+  ArrowTrendingUpIcon,
+} from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 interface TrendPoint {
@@ -17,6 +24,15 @@ const RANGES: { label: string; days: 7 | 14 | 30 }[] = [
   { label: "14D", days: 14 },
   { label: "30D", days: 30 },
 ];
+
+const Y_TICKS = [100, 75, 50, 25, 0];
+
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+}
 
 export default function AttendanceTrendChart() {
   const { viewingSession, withSessionId } = useViewingSession();
@@ -47,18 +63,27 @@ export default function AttendanceTrendChart() {
   const totalPresent = data.reduce((a, d) => a + d.present, 0);
   const totalMarked = data.reduce((a, d) => a + d.total, 0);
   const average = totalMarked > 0 ? Math.round((totalPresent / totalMarked) * 100) : 0;
-  const best = data.reduce<TrendPoint | null>((a, d) => (d.total > 0 && (!a || d.percentage > a.percentage) ? d : a), null);
+  const best = data.reduce<TrendPoint | null>(
+    (a, d) => (d.total > 0 && (!a || d.percentage > a.percentage) ? d : a),
+    null
+  );
 
   return (
     <Card>
-      <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
-        <div>
-          <h2 className="text-lg font-semibold text-primary-900">
-            Attendance Trend
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Daily present % across all sections
-          </p>
+      {/* Header: icon + title + range toggle */}
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-5">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-primary-50 text-primary-600 shrink-0">
+            <ChartBarIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-primary-900">
+              Attendance Trend
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Daily present % across all sections
+            </p>
+          </div>
         </div>
         <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
           {RANGES.map((r) => (
@@ -67,9 +92,9 @@ export default function AttendanceTrendChart() {
               type="button"
               onClick={() => setDays(r.days)}
               className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer",
+                "px-4 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer",
                 days === r.days
-                  ? "bg-white text-primary-700 shadow-sm"
+                  ? "bg-primary-600 text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-800"
               )}
             >
@@ -79,105 +104,201 @@ export default function AttendanceTrendChart() {
         </div>
       </div>
 
-      {/* Summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-        <Stat label={`${days}-day average`} value={`${average}%`} tone="primary" />
-        <Stat label="Total marked" value={totalMarked.toLocaleString("en-IN")} tone="gray" />
-        <Stat
-          label="Best day"
+      {/* Summary strip: 3 highlight cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <HighlightCard
+          tone="primary"
+          icon={<PresentationChartLineIcon className="w-5 h-5" />}
+          label={`${days}-DAY AVERAGE`}
+          value={`${average}%`}
+        />
+        <HighlightCard
+          tone="neutral"
+          icon={<CalendarDaysIcon className="w-5 h-5" />}
+          label="TOTAL MARKED"
+          value={totalMarked.toLocaleString("en-IN")}
+          rightDecoration={<DotsPattern />}
+        />
+        <HighlightCard
+          tone="success"
+          icon={<TrophyIcon className="w-5 h-5" />}
+          label="BEST DAY"
           value={
             best
-              ? `${best.percentage}% (${new Date(best.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })})`
+              ? `${best.percentage}% (${formatShortDate(best.date)})`
               : "—"
           }
-          tone="green"
+          rightDecoration={
+            best ? <ArrowTrendingUpIcon className="w-12 h-12 text-green-300/70" /> : null
+          }
         />
       </div>
 
       {/* Chart */}
-      {loading ? (
-        <div className="h-44 flex items-end gap-1.5">
-          {Array.from({ length: days }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-1 bg-gray-100 rounded-t-md animate-pulse"
-              style={{ height: `${30 + ((i * 37) % 60)}%` }}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="h-44 flex items-end gap-1.5" role="img" aria-label="Daily attendance bar chart">
-          {data.map((d) => {
-            const hasData = d.total > 0;
-            const heightPct = hasData ? Math.max(4, d.percentage) : 2;
-            const dateLabel = new Date(d.date).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              weekday: "short",
-            });
-            return (
+      <div className="relative rounded-xl border border-gray-100 p-4 pt-6 bg-white">
+        {loading ? (
+          <div className="h-64 flex items-end gap-2 pl-10">
+            {Array.from({ length: days }).map((_, i) => (
               <div
-                key={d.date}
-                className="group relative flex-1 flex flex-col items-center justify-end h-full"
-              >
+                key={i}
+                className="flex-1 bg-gray-100 rounded-t-md animate-pulse"
+                style={{ height: `${30 + ((i * 37) % 60)}%` }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="relative h-64">
+            {/* Y-axis ticks + gridlines */}
+            <div className="absolute inset-0">
+              {Y_TICKS.map((t) => (
                 <div
-                  className={cn(
-                    "w-full rounded-t-md transition-all duration-200",
-                    hasData
-                      ? "bg-gradient-to-t from-primary-500 to-primary-400 group-hover:from-primary-600 group-hover:to-primary-500"
-                      : "bg-gray-100"
-                  )}
-                  style={{ height: `${heightPct}%` }}
-                />
-                {/* Tooltip */}
-                <div className="pointer-events-none absolute bottom-full mb-2 px-2 py-1 rounded-md bg-gray-900 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-lg">
-                  <div className="font-semibold">{dateLabel}</div>
-                  <div className="text-gray-300">
-                    {hasData ? `${d.percentage}% · ${d.present}/${d.total}` : "Not marked"}
-                  </div>
+                  key={t}
+                  className="absolute left-0 right-0 flex items-center"
+                  style={{ top: `${100 - t}%`, transform: "translateY(-50%)" }}
+                >
+                  <span className="w-10 pr-2 text-right text-[10px] text-gray-400 tabular-nums">
+                    {t}%
+                  </span>
+                  <div
+                    className={cn(
+                      "flex-1 border-t",
+                      t === 0 ? "border-gray-200" : "border-dashed border-gray-100"
+                    )}
+                  />
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              ))}
+            </div>
 
-      {/* Axis */}
-      {!loading && data.length > 0 && (
-        <div className="flex justify-between mt-2 text-[10px] text-gray-400">
-          <span>
-            {new Date(data[0].date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-          </span>
-          <span>
-            {new Date(data[data.length - 1].date).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-            })}
-          </span>
-        </div>
-      )}
+            {/* Bars, offset to clear y-axis labels */}
+            <div className="absolute left-10 right-0 top-0 bottom-0 flex items-end gap-2"
+                 role="img"
+                 aria-label="Daily attendance bar chart">
+              {data.map((d) => {
+                const hasData = d.total > 0;
+                const heightPct = hasData ? Math.max(2, d.percentage) : 0;
+                const dateLabel = formatShortDate(d.date);
+                return (
+                  <div
+                    key={d.date}
+                    className="group relative flex-1 flex flex-col items-center justify-end h-full min-w-0"
+                  >
+                    {/* Percentage label above bar */}
+                    {hasData && (
+                      <span
+                        className="absolute text-xs font-bold text-primary-700 tabular-nums pointer-events-none"
+                        style={{ bottom: `${heightPct}%`, marginBottom: "4px" }}
+                      >
+                        {d.percentage}%
+                      </span>
+                    )}
+                    {/* Bar */}
+                    <div
+                      className={cn(
+                        "w-full max-w-[56px] rounded-t-md transition-all duration-200 shadow-sm",
+                        hasData
+                          ? "bg-gradient-to-t from-primary-700 to-primary-500 group-hover:from-primary-800 group-hover:to-primary-600"
+                          : ""
+                      )}
+                      style={{ height: `${heightPct}%` }}
+                    />
+                    {/* Full tooltip on hover */}
+                    <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full px-2 py-1 rounded-md bg-gray-900 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-lg">
+                      <div className="font-semibold">{dateLabel}</div>
+                      <div className="text-gray-300">
+                        {hasData ? `${d.percentage}% · ${d.present}/${d.total}` : "Not marked"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* X-axis labels */}
+        {!loading && data.length > 0 && (
+          <div className="mt-2 flex gap-2 pl-10">
+            {data.map((d) => (
+              <span
+                key={d.date}
+                className="flex-1 text-center text-[11px] font-medium text-gray-500 min-w-0 truncate"
+              >
+                {formatShortDate(d.date)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
 
-function Stat({
+function HighlightCard({
+  tone,
+  icon,
   label,
   value,
-  tone,
+  rightDecoration,
 }: {
+  tone: "primary" | "neutral" | "success";
+  icon: React.ReactNode;
   label: string;
   value: string;
-  tone: "primary" | "gray" | "green";
+  rightDecoration?: React.ReactNode;
 }) {
-  const toneCls = {
-    primary: "text-primary-700 bg-primary-50/60 border-primary-100",
-    gray: "text-gray-700 bg-gray-50 border-gray-200",
-    green: "text-green-700 bg-green-50 border-green-100",
+  const toneConfig = {
+    primary: {
+      card: "bg-gradient-to-br from-primary-50 to-indigo-50 border-primary-100",
+      iconWrap: "bg-white text-primary-600 border border-primary-100",
+      label: "text-primary-700/80",
+      value: "text-primary-700",
+    },
+    neutral: {
+      card: "bg-gray-50 border-gray-200",
+      iconWrap: "bg-white text-gray-600 border border-gray-200",
+      label: "text-gray-500",
+      value: "text-gray-900",
+    },
+    success: {
+      card: "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200",
+      iconWrap: "bg-white text-green-600 border border-green-200",
+      label: "text-green-700/80",
+      value: "text-green-700",
+    },
   }[tone];
+
   return (
-    <div className={cn("rounded-lg border px-3 py-2", toneCls)}>
-      <div className="text-[11px] font-medium opacity-75 uppercase tracking-wider">{label}</div>
-      <div className="text-sm font-bold mt-0.5">{value}</div>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl border px-4 py-3 flex items-center gap-3",
+        toneConfig.card
+      )}
+    >
+      <div className={cn("flex items-center justify-center w-11 h-11 rounded-lg shrink-0", toneConfig.iconWrap)}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className={cn("text-[10px] font-bold uppercase tracking-wider", toneConfig.label)}>
+          {label}
+        </div>
+        <div className={cn("text-xl font-bold mt-0.5 truncate", toneConfig.value)}>
+          {value}
+        </div>
+      </div>
+      {rightDecoration && (
+        <div className="shrink-0 opacity-80 pointer-events-none">{rightDecoration}</div>
+      )}
+    </div>
+  );
+}
+
+function DotsPattern() {
+  // Decorative 4×5 dot grid in gray — purely visual, matches the mock.
+  return (
+    <div className="grid grid-cols-5 gap-1">
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div key={i} className="w-1 h-1 rounded-full bg-gray-300" />
+      ))}
     </div>
   );
 }

@@ -38,11 +38,25 @@ export async function PUT(
       )
     }
 
+    const gradeLevelNum = Number(grade_level)
+    if (
+      grade_level === undefined ||
+      grade_level === null ||
+      grade_level === "" ||
+      !Number.isInteger(gradeLevelNum) ||
+      gradeLevelNum < 0
+    ) {
+      return NextResponse.json(
+        { error: "Grade level is required and must be a non-negative integer" },
+        { status: 400 }
+      )
+    }
+
     await executeQuery(
       `UPDATE classes
          SET name = ?, code = ?, grade_level = ?, updated_at = NOW()
        WHERE id = ?`,
-      [name.trim(), code || null, grade_level ?? null, classId]
+      [name.trim(), code || null, gradeLevelNum, classId]
     )
 
     return NextResponse.json({ message: "Class updated successfully" })

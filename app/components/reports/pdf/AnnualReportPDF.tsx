@@ -17,7 +17,48 @@ interface AnnualReportPDFProps {
 }
 
 export default function AnnualReportPDF({ data, partner }: AnnualReportPDFProps) {
-  const { student, session, exams, attendance, holistic_trends, teacher_remarks } = data
+  const {
+    ready,
+    not_ready_reason,
+    template_type,
+    student,
+    session,
+    exams = [],
+    overall = null,
+    attendance,
+    holistic_trends = [],
+    teacher_remarks,
+  } = data
+  const isJunior = template_type === "junior"
+
+  // Not-ready short-circuit: render a one-page placeholder so the PDF still
+  // generates but clearly explains the report isn't available yet.
+  if (ready === false) {
+    return (
+      <Document>
+        <Page size="A4" style={styles.page}>
+          <ReportHeader
+            partner={partner}
+            student={student}
+            title="Annual Report Card"
+            subtitle={`Session: ${session.name}`}
+          />
+          <View style={{ marginTop: 40 }}>
+            <Text style={styles.sectionTitle}>Report Not Available Yet</Text>
+            <View style={[styles.remarksBox, { marginTop: 8 }]}>
+              <Text style={styles.remarksText}>
+                {not_ready_reason ||
+                  (isJunior
+                    ? "Mid-Term and Final/Annual exams must be completed before the annual report can be generated."
+                    : "The Final/Annual exam must be completed before the annual report can be generated.")}
+              </Text>
+            </View>
+          </View>
+          <ReportFooter />
+        </Page>
+      </Document>
+    )
+  }
 
   // Collect all unique subjects
   const allSubjects = Array.from(
@@ -34,26 +75,49 @@ export default function AnnualReportPDF({ data, partner }: AnnualReportPDFProps)
           subtitle={`Session: ${session.name}`}
         />
 
+        {/* Overall (junior = term average, senior = final) */}
+        {overall && (
+          <View style={{ marginBottom: 8 }}>
+            <Text style={styles.sectionTitle}>
+              {isJunior ? "Overall (Mid-Term + Final/Annual Average)" : "Final/Annual Exam Result"}
+            </Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{overall.percentage.toFixed(2)}%</Text>
+                <Text style={styles.statLabel}>Overall</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{overall.grade}</Text>
+                <Text style={styles.statLabel}>Grade</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Attendance */}
-        <Text style={styles.sectionTitle}>Yearly Attendance</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{attendance.total_days}</Text>
-            <Text style={styles.statLabel}>Working Days</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: "#16a34a" }]}>{attendance.present}</Text>
-            <Text style={styles.statLabel}>Present</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: "#dc2626" }]}>{attendance.absent}</Text>
-            <Text style={styles.statLabel}>Absent</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{attendance.percentage.toFixed(1)}%</Text>
-            <Text style={styles.statLabel}>Attendance %</Text>
-          </View>
-        </View>
+        {attendance && (
+          <>
+            <Text style={styles.sectionTitle}>Yearly Attendance</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{attendance.total_days}</Text>
+                <Text style={styles.statLabel}>Working Days</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={[styles.statValue, { color: "#16a34a" }]}>{attendance.present}</Text>
+                <Text style={styles.statLabel}>Present</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={[styles.statValue, { color: "#dc2626" }]}>{attendance.absent}</Text>
+                <Text style={styles.statLabel}>Absent</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{attendance.percentage.toFixed(1)}%</Text>
+                <Text style={styles.statLabel}>Attendance %</Text>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Consolidated Exam Results */}
         {exams.length > 0 && (

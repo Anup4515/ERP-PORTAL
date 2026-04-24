@@ -27,26 +27,31 @@ interface HolisticTrend {
 }
 
 export interface AnnualReportData {
+  template_type?: "senior" | "junior";
+  ready?: boolean;
+  not_ready_reason?: string | null;
   student: {
     name: string;
     roll_number: number | null;
     class_name: string;
     section_name: string;
+    grade_level?: number | null;
   };
   session: {
     name: string;
     start_date: string;
     end_date: string;
   };
-  exams: ExamSummary[];
-  attendance: {
+  exams?: ExamSummary[];
+  overall?: { percentage: number; grade: string } | null;
+  attendance?: {
     total_days: number;
     present: number;
     absent: number;
     percentage: number;
   };
-  holistic_trends: HolisticTrend[];
-  teacher_remarks: string | null;
+  holistic_trends?: HolisticTrend[];
+  teacher_remarks?: string | null;
 }
 
 function gradeVariant(grade: string): "success" | "warning" | "danger" | "info" | "default" {
@@ -65,7 +70,61 @@ function percentageColor(pct: number | null) {
 }
 
 export default function AnnualReportView({ data }: { data: AnnualReportData }) {
-  const { student, session, exams, attendance, holistic_trends, teacher_remarks } = data;
+  const {
+    template_type,
+    ready,
+    not_ready_reason,
+    student,
+    session,
+    exams = [],
+    overall = null,
+    attendance,
+    holistic_trends = [],
+    teacher_remarks,
+  } = data;
+  const isJunior = template_type === "junior";
+  const templateLabel = isJunior ? "Junior (Term-wise)" : "Senior (Final)";
+
+  // ── Not-ready state ───────────────────────────────────────────────
+  if (ready === false) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-primary-900">{student.name}</h2>
+              <p className="text-sm text-gray-500">
+                {student.class_name} - {student.section_name}
+                {student.roll_number ? ` | Roll No: ${student.roll_number}` : ""}
+              </p>
+            </div>
+            <div className="text-right text-xs text-gray-500">
+              <div className="font-semibold text-gray-700">{session.name}</div>
+              <div>{templateLabel} template</div>
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 text-amber-700 mb-4">
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              Annual report not available yet
+            </h3>
+            <p className="text-sm text-gray-600 max-w-md">
+              {not_ready_reason ||
+                (isJunior
+                  ? "Mid-Term and Final/Annual exams must be completed before the annual report can be generated."
+                  : "The Final/Annual exam must be completed before the annual report can be generated.")}
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -88,30 +147,59 @@ export default function AnnualReportView({ data }: { data: AnnualReportData }) {
         </div>
       </Card>
 
+      {/* Overall summary (term-wise junior OR final senior) */}
+      {overall && (
+        <Card>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700">
+                {isJunior ? "Overall (Mid-Term + Final/Annual Average)" : "Final/Annual Exam Result"}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {isJunior
+                  ? "Plain average of Mid-Term and Final/Annual percentages"
+                  : "Annual result based on the Final/Annual exam"}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className={`text-2xl font-bold ${percentageColor(overall.percentage)}`}>
+                  {overall.percentage.toFixed(2)}%
+                </div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-400">Overall</div>
+              </div>
+              <Badge variant={gradeVariant(overall.grade)} size="md">{overall.grade}</Badge>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Yearly Attendance */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Yearly Attendance</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="text-center p-3 rounded-lg bg-gray-50">
-            <p className="text-2xl font-bold text-primary-900">{attendance.total_days}</p>
-            <p className="text-xs text-gray-500 mt-1">Working Days</p>
+      {attendance && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">Yearly Attendance</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center p-3 rounded-lg bg-gray-50">
+              <p className="text-2xl font-bold text-primary-900">{attendance.total_days}</p>
+              <p className="text-xs text-gray-500 mt-1">Working Days</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-green-50">
+              <p className="text-2xl font-bold text-green-600">{attendance.present}</p>
+              <p className="text-xs text-gray-500 mt-1">Present</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-red-50">
+              <p className="text-2xl font-bold text-red-600">{attendance.absent}</p>
+              <p className="text-xs text-gray-500 mt-1">Absent</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-primary-50">
+              <p className={`text-2xl font-bold ${percentageColor(attendance.percentage)}`}>
+                {attendance.percentage.toFixed(1)}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Attendance %</p>
+            </div>
           </div>
-          <div className="text-center p-3 rounded-lg bg-green-50">
-            <p className="text-2xl font-bold text-green-600">{attendance.present}</p>
-            <p className="text-xs text-gray-500 mt-1">Present</p>
-          </div>
-          <div className="text-center p-3 rounded-lg bg-red-50">
-            <p className="text-2xl font-bold text-red-600">{attendance.absent}</p>
-            <p className="text-xs text-gray-500 mt-1">Absent</p>
-          </div>
-          <div className="text-center p-3 rounded-lg bg-primary-50">
-            <p className={`text-2xl font-bold ${percentageColor(attendance.percentage)}`}>
-              {attendance.percentage.toFixed(1)}%
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Attendance %</p>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Individual Exam Cards */}
       {exams.map((exam) => (

@@ -108,6 +108,12 @@ export default function ClassesTab() {
     e.preventDefault();
     if (!addClassForm.name.trim()) return;
 
+    const gradeLevelNum = parseInt(addClassForm.grade_level, 10);
+    if (!addClassForm.grade_level.trim() || Number.isNaN(gradeLevelNum) || gradeLevelNum < 0) {
+      setAddClassError("Grade level is required and must be a non-negative integer.");
+      return;
+    }
+
     setAddClassLoading(true);
     setAddClassError(null);
 
@@ -119,11 +125,9 @@ export default function ClassesTab() {
 
       const body: Record<string, unknown> = {
         name: addClassForm.name.trim(),
+        grade_level: gradeLevelNum,
       };
       if (addClassForm.code.trim()) body.code = addClassForm.code.trim();
-      if (addClassForm.grade_level.trim()) {
-        body.grade_level = parseInt(addClassForm.grade_level, 10);
-      }
       if (sectionsArray.length > 0) body.sections = sectionsArray;
 
       const res = await fetch(withSessionId("/api/classes"), {
@@ -172,14 +176,20 @@ export default function ClassesTab() {
     e.preventDefault();
     if (!editingClass || !editClassForm.name.trim()) return;
 
+    const gradeLevelNum = parseInt(editClassForm.grade_level, 10);
+    if (!editClassForm.grade_level.trim() || Number.isNaN(gradeLevelNum) || gradeLevelNum < 0) {
+      setEditClassError("Grade level is required and must be a non-negative integer.");
+      return;
+    }
+
     setEditClassLoading(true);
     setEditClassError(null);
     try {
-      const body: Record<string, unknown> = { name: editClassForm.name.trim() };
+      const body: Record<string, unknown> = {
+        name: editClassForm.name.trim(),
+        grade_level: gradeLevelNum,
+      };
       body.code = editClassForm.code.trim() || null;
-      body.grade_level = editClassForm.grade_level.trim()
-        ? parseInt(editClassForm.grade_level, 10)
-        : null;
 
       const res = await fetch(withSessionId(`/api/classes/${editingClass.id}`), {
         method: "PUT",
@@ -388,11 +398,13 @@ export default function ClassesTab() {
           <Input
             label="Grade Level"
             type="number"
-            placeholder="e.g. 1, 10 (optional)"
+            min={0}
+            placeholder="e.g. 1, 10 (0 for Nursery)"
             value={addClassForm.grade_level}
             onChange={(e) =>
               setAddClassForm((f) => ({ ...f, grade_level: e.target.value }))
             }
+            required
           />
 
           <Input
@@ -509,11 +521,13 @@ export default function ClassesTab() {
           <Input
             label="Grade Level"
             type="number"
-            placeholder="e.g. 1, 10 (optional)"
+            min={0}
+            placeholder="e.g. 1, 10 (0 for Nursery)"
             value={editClassForm.grade_level}
             onChange={(e) =>
               setEditClassForm((f) => ({ ...f, grade_level: e.target.value }))
             }
+            required
           />
 
           {editClassError && (

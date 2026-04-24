@@ -63,6 +63,7 @@ export default function ExamsPage() {
   const [selectedCsIds, setSelectedCsIds] = useState<string[]>([]);
   const [addName, setAddName] = useState("");
   const [addCode, setAddCode] = useState("");
+  const [addExamType, setAddExamType] = useState("other");
   const [addStartDate, setAddStartDate] = useState("");
   const [addEndDate, setAddEndDate] = useState("");
   const [addSaving, setAddSaving] = useState(false);
@@ -116,7 +117,7 @@ export default function ExamsPage() {
   };
 
   const resetAddForm = () => {
-    setSelectedCsIds([]); setAddName(""); setAddCode(""); setAddStartDate(""); setAddEndDate(""); setAddError("");
+    setSelectedCsIds([]); setAddName(""); setAddCode(""); setAddExamType("other"); setAddStartDate(""); setAddEndDate(""); setAddError("");
   };
 
   const handleAdd = async () => {
@@ -130,6 +131,7 @@ export default function ExamsPage() {
           class_section_ids: selectedCsIds.map(Number),
           name: addName,
           code: addCode || null,
+          exam_type: addExamType,
           start_date: addStartDate || null,
           end_date: addEndDate || null,
         }),
@@ -283,7 +285,20 @@ export default function ExamsPage() {
           </div>
 
           <Input label="Exam Name *" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="e.g. Mid Term, Final Exam" />
-          <Input label="Code" value={addCode} onChange={(e) => setAddCode(e.target.value)} placeholder="e.g. MID-1" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Code" value={addCode} onChange={(e) => setAddCode(e.target.value)} placeholder="e.g. MID-1" />
+            <Select
+              label="Exam Type"
+              value={addExamType}
+              onChange={(e) => setAddExamType(e.target.value)}
+              options={[
+                { value: "other", label: "Other" },
+                { value: "unit_test", label: "Unit Test" },
+                { value: "mid_term", label: "Mid-Term" },
+                { value: "final_annual", label: "Final / Annual" },
+              ]}
+            />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>

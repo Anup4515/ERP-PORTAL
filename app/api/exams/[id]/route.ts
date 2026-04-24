@@ -52,14 +52,20 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const allowed = ["name", "code", "start_date", "end_date", "status"]
+    const allowed = ["name", "code", "exam_type", "start_date", "end_date", "status"]
+    const ALLOWED_EXAM_TYPES = ["other", "unit_test", "mid_term", "final_annual"]
     const updates: string[] = []
     const values: any[] = []
 
     for (const key of allowed) {
       if (body[key] !== undefined) {
+        let value = body[key] || null
+        // Guardrail: silently drop invalid exam_type values so the enum stays clean.
+        if (key === "exam_type" && value !== null && !ALLOWED_EXAM_TYPES.includes(value)) {
+          continue
+        }
         updates.push(`${key} = ?`)
-        values.push(body[key] || null)
+        values.push(value)
       }
     }
     if (updates.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 })

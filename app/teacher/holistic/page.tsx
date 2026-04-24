@@ -398,7 +398,7 @@ export default function TeacherHolisticPage() {
         <>
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-stretch rounded-lg overflow-hidden shadow-sm ring-1 ring-accent-400/60">
+            <div className="inline-flex items-stretch rounded-lg overflow-hidden shadow-sm ring-1 ring-accent-400/60">
               <input
                 type="number"
                 min={1}
@@ -419,14 +419,14 @@ export default function TeacherHolisticPage() {
                 }
                 disabled={isViewingPastSession}
                 aria-label="Default rating value"
-                className="w-14 px-2 text-sm font-semibold text-primary-900 bg-white focus:outline-none focus:ring-2 focus:ring-accent-400 disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-16 px-3 py-1.5 text-sm font-semibold text-primary-900 bg-white focus:outline-none focus:ring-2 focus:ring-accent-400 disabled:bg-gray-50 disabled:text-gray-400"
               />
               <button
                 type="button"
                 onClick={handleSetDefault}
                 disabled={isViewingPastSession}
                 title={`Fill empty cells with ${defaultValue}`}
-                className="px-4 text-sm font-bold text-primary-900 bg-accent-400 hover:bg-accent-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
+                className="px-5 py-1.5 text-sm font-bold text-primary-900 bg-accent-400 hover:bg-accent-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
               >
                 Set Default
               </button>

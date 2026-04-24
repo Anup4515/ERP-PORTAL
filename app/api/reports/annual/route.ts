@@ -27,6 +27,7 @@ export async function GET(request: Request) {
       last_name: string
       class_name: string
       section_name: string
+      grade_level: number | null
       session_name: string
       session_start: string
       session_end: string
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
     }[]>(
       `SELECT se.id, se.class_section_id, se.roll_number,
               s.first_name, s.last_name,
-              c.name as class_name, sec.name as section_name,
+              c.name as class_name, sec.name as section_name, c.grade_level,
               es.name as session_name, es.start_date as session_start,
               es.end_date as session_end, es.id as session_id
        FROM erp_student_enrollments se
@@ -53,18 +54,72 @@ export async function GET(request: Request) {
 
     const student = enrollRows[0]
 
-    // ── All completed exams for this class section ──
+    // Senior = grade 9+ (final/annual only); Junior = grade 1-8 (mid-term + final/annual, averaged).
+    const gradeLevel = Number(student.grade_level) || 0
+    const templateType: "senior" | "junior" = gradeLevel >= 9 ? "senior" : "junior"
+    const requiredTypes =
+      templateType === "senior" ? ["final_annual"] : ["mid_term", "final_annual"]
+
+    // ── Pull exams needed by this template (must exist AND be completed) ──
+    const typePlaceholders = requiredTypes.map(() => "?").join(",")
     const exams = await executeQuery<{
       id: number
       name: string
+      exam_type: string
+      status: string
       start_date: string
       end_date: string
     }[]>(
-      `SELECT id, name, start_date, end_date FROM erp_exams
-       WHERE class_section_id = ? AND status = 'completed'
-       ORDER BY start_date, id`,
-      [student.class_section_id]
+      `SELECT id, name, exam_type, status, start_date, end_date FROM erp_exams
+       WHERE class_section_id = ? AND exam_type IN (${typePlaceholders})
+       ORDER BY FIELD(exam_type, ${typePlaceholders}), start_date, id`,
+      [student.class_section_id, ...requiredTypes, ...requiredTypes]
     )
+
+    // Gate: every required type must be present AND status='completed'.
+    const presentTypes = new Set(exams.map((e) => e.exam_type))
+    const missingTypes = requiredTypes.filter((t) => !presentTypes.has(t))
+    const incompleteTypes = exams
+      .filter((e) => e.status !== "completed")
+      .map((e) => e.exam_type)
+
+    if (missingTypes.length > 0 || incompleteTypes.length > 0) {
+      const readableType = (t: string) =>
+        t === "final_annual" ? "Final/Annual" : t === "mid_term" ? "Mid-Term" : t === "unit_test" ? "Unit Test" : t
+      const missingLabels = missingTypes.map(readableType)
+      const incompleteLabels = incompleteTypes.map(readableType)
+      const parts: string[] = []
+      if (missingLabels.length) {
+        parts.push(
+          `${missingLabels.join(" and ")} exam${missingLabels.length > 1 ? "s have" : " has"} not been created yet`
+        )
+      }
+      if (incompleteLabels.length) {
+        parts.push(
+          `${incompleteLabels.join(" and ")} exam${incompleteLabels.length > 1 ? "s are" : " is"} not completed yet`
+        )
+      }
+      return NextResponse.json({
+        data: {
+          template_type: templateType,
+          ready: false,
+          not_ready_reason:
+            parts.join(" · ").charAt(0).toUpperCase() + parts.join(" · ").slice(1) + ".",
+          student: {
+            name: `${student.first_name} ${student.last_name}`,
+            roll_number: student.roll_number,
+            class_name: student.class_name,
+            section_name: student.section_name,
+            grade_level: gradeLevel,
+          },
+          session: {
+            name: student.session_name,
+            start_date: student.session_start,
+            end_date: student.session_end,
+          },
+        },
+      })
+    }
 
     // Get grading ranges for grade computation
     const gradingRanges = await executeQuery<{
@@ -242,13 +297,31 @@ export async function GET(request: Request) {
       [studentId]
     )
 
+    // Overall aggregate: plain average of term percentages for juniors, single
+    // exam for seniors.
+    const overall =
+      examResults.length > 0
+        ? {
+            percentage:
+              Math.round(
+                (examResults.reduce((a, e) => a + e.percentage, 0) / examResults.length) * 100
+              ) / 100,
+            grade: getGrade(
+              examResults.reduce((a, e) => a + e.percentage, 0) / examResults.length
+            ),
+          }
+        : null
+
     return NextResponse.json({
       data: {
+        template_type: templateType,
+        ready: true,
         student: {
           name: `${student.first_name} ${student.last_name}`,
           roll_number: student.roll_number,
           class_name: student.class_name,
           section_name: student.section_name,
+          grade_level: gradeLevel,
         },
         session: {
           name: student.session_name,
@@ -256,6 +329,7 @@ export async function GET(request: Request) {
           end_date: student.session_end,
         },
         exams: examResults,
+        overall,
         attendance: {
           total_days: totalWorkingDays,
           present,

@@ -81,6 +81,20 @@ export async function POST(request: Request) {
       )
     }
 
+    const gradeLevelNum = Number(grade_level)
+    if (
+      grade_level === undefined ||
+      grade_level === null ||
+      grade_level === "" ||
+      !Number.isInteger(gradeLevelNum) ||
+      gradeLevelNum < 0
+    ) {
+      return NextResponse.json(
+        { error: "Grade level is required and must be a non-negative integer" },
+        { status: 400 }
+      )
+    }
+
     // Insert the class
     const classResult = await executeQuery<{ insertId: number }>(
       `INSERT INTO classes (partner_id, name, code, grade_level, display_order, status, created_at, updated_at)
@@ -89,7 +103,7 @@ export async function POST(request: Request) {
         ctx.partnerUserId,
         name.trim(),
         code || null,
-        grade_level ?? null,
+        gradeLevelNum,
         display_order ?? 0,
       ]
     )
@@ -139,7 +153,7 @@ export async function POST(request: Request) {
           id: classId,
           name: name.trim(),
           code: code || null,
-          grade_level: grade_level ?? null,
+          grade_level: gradeLevelNum,
           display_order: display_order ?? 0,
           sections: createdSections,
         },

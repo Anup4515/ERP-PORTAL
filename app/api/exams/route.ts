@@ -86,11 +86,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { class_section_ids, name, code, start_date, end_date } = body
+    const { class_section_ids, name, code, start_date, end_date, exam_type } = body
 
     if (!Array.isArray(class_section_ids) || class_section_ids.length === 0 || !name) {
       return NextResponse.json({ error: "class_section_ids array and name are required" }, { status: 400 })
     }
+
+    const ALLOWED_TYPES = ["other", "unit_test", "mid_term", "final_annual"] as const
+    const examType =
+      typeof exam_type === "string" && (ALLOWED_TYPES as readonly string[]).includes(exam_type)
+        ? exam_type
+        : "other"
 
     // Verify all class-sections belong to this partner
     const placeholders = class_section_ids.map(() => "?").join(", ")
@@ -120,9 +126,9 @@ export async function POST(request: Request) {
 
         // Create exam
         const [result] = await connection.execute(
-          `INSERT INTO erp_exams (class_section_id, partner_id, name, code, start_date, end_date, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-          [csId, ctx.partnerUserId, name, code || null, start_date || null, end_date || null, status]
+          `INSERT INTO erp_exams (class_section_id, partner_id, name, code, exam_type, start_date, end_date, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [csId, ctx.partnerUserId, name, code || null, examType, start_date || null, end_date || null, status]
         )
         const examId = (result as any).insertId
         createdIds.push(examId)

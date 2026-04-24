@@ -7,5 +7,5 @@ export default async function TeacherChatPage() {
   if (!session?.user || session.user.role !== "teacher") {
     redirect("/login");
   }
-  return <ChatPageShell selfUserId={session.user.user_id} />;
+  return <ChatPageShell selfUserId={session.user.user_id} role="teacher" />;
 }

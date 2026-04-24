@@ -7,6 +7,11 @@ import {
   PaperAirplaneIcon,
   MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
+import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
+
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 interface Contact {
   user_id: number;
@@ -31,6 +36,7 @@ interface Message {
 
 interface ChatPageShellProps {
   selfUserId: number;
+  role: "school_admin" | "teacher";
 }
 
 const POLL_INTERVAL_MS = 5_000;
@@ -57,7 +63,15 @@ function initials(name: string): string {
     .join("") || "?";
 }
 
-export default function ChatPageShell({ selfUserId }: ChatPageShellProps) {
+export default function ChatPageShell({ selfUserId, role }: ChatPageShellProps) {
+  const { label, labelPossessive } = usePartnerBranding();
+  const labelTitle = titleCase(label);
+  const adminRoleLabel = `${labelTitle} Admin`;
+  const subtitle =
+    role === "school_admin"
+      ? `Direct messages with teachers in your ${label}.`
+      : `Direct messages with the ${labelPossessive} admin and other teachers.`;
+
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(true);
   const [contactsError, setContactsError] = useState("");
@@ -224,16 +238,14 @@ export default function ChatPageShell({ selfUserId }: ChatPageShellProps) {
   }, [contacts, search]);
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="flex flex-col h-[calc(100dvh-10rem)] min-h-[420px]">
+      <div className="shrink-0 mb-3">
         <h1 className="text-2xl font-bold text-primary-900">Messages</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Direct messages with the school admin and teachers in your school.
-        </p>
+        <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
       </div>
 
-      <Card padding="none" className="overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] min-h-[560px]">
+      <Card padding="none" className="overflow-hidden flex-1 min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] h-full">
           {/* Contacts pane */}
           <div className="border-r border-gray-100 flex flex-col">
             <div className="p-3 border-b border-gray-100">
@@ -288,7 +300,7 @@ export default function ChatPageShell({ selfUserId }: ChatPageShellProps) {
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-xs text-gray-500 truncate">
                                 {c.last_message_preview ||
-                                  (c.role === "school_admin" ? "School admin" : "Teacher")}
+                                  (c.role === "school_admin" ? adminRoleLabel : "Teacher")}
                               </p>
                               {c.unread_count > 0 && (
                                 <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary-600 text-white text-[10px] font-bold">
@@ -307,7 +319,7 @@ export default function ChatPageShell({ selfUserId }: ChatPageShellProps) {
           </div>
 
           {/* Conversation pane */}
-          <div className="flex flex-col min-h-[560px]">
+          <div className="flex flex-col min-h-0 h-full">
             {!activeContact ? (
               <div className="flex-1 flex items-center justify-center p-6">
                 <EmptyState
@@ -328,7 +340,7 @@ export default function ChatPageShell({ selfUserId }: ChatPageShellProps) {
                       {activeContact.name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {activeContact.role === "school_admin" ? "School Admin" : "Teacher"}
+                      {activeContact.role === "school_admin" ? adminRoleLabel : "Teacher"}
                       {" · "}
                       {activeContact.email}
                     </p>

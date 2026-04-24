@@ -23,6 +23,12 @@ interface DailyRow {
   present: number;
 }
 
+interface HolidayRow {
+  date: string;
+  is_holiday: number;
+  holiday_reason: string | null;
+}
+
 export async function GET(request: Request) {
   try {
     const ctx = await getAuthContext(["teacher"]);
@@ -80,6 +86,19 @@ export async function GET(request: Request) {
 
     const dates = emptyDateList(days);
 
+    // Holiday lookup (session-scoped) so each per-class row can show
+    // "Holiday · <reason>" instead of a blank dash.
+    const holidayRows = await executeQuery<HolidayRow[]>(
+      `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date, is_holiday, holiday_reason
+         FROM erp_calendar_days
+        WHERE session_id = ?
+          AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+          AND date <= CURDATE()`,
+      [sess.sessionId, days - 1]
+    );
+    const holidayByDate = new Map<string, HolidayRow>();
+    for (const h of holidayRows) holidayByDate.set(h.date, h);
+
     // Bucket: class_section_id -> date -> { present, total }
     const byCs: Map<number, Map<string, { present: number; total: number }>> = new Map();
     for (const r of rows) {
@@ -92,15 +111,20 @@ export async function GET(request: Request) {
 
     const data = classes.map((c) => {
       const series = dates.map((d) => {
+        const hol = holidayByDate.get(d);
+        const is_holiday = hol?.is_holiday === 1;
+        const holiday_reason = is_holiday ? hol?.holiday_reason ?? "Holiday" : null;
         const hit = byCs.get(c.class_section_id)?.get(d);
         if (!hit || hit.total === 0) {
-          return { date: d, percentage: null, present: 0, total: 0 };
+          return { date: d, percentage: null, present: 0, total: 0, is_holiday, holiday_reason };
         }
         return {
           date: d,
           percentage: Math.round((hit.present / hit.total) * 100),
           present: hit.present,
           total: hit.total,
+          is_holiday,
+          holiday_reason,
         };
       });
       const sumTotal = series.reduce((a, s) => a + s.total, 0);

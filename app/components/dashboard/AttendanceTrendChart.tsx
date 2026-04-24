@@ -9,6 +9,7 @@ import {
   CalendarDaysIcon,
   TrophyIcon,
   ArrowTrendingUpIcon,
+  SunIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
@@ -17,6 +18,8 @@ interface TrendPoint {
   total: number;
   present: number;
   percentage: number;
+  is_holiday?: boolean;
+  holiday_reason?: string | null;
 }
 
 const RANGES: { label: string; days: 7 | 14 | 30 }[] = [
@@ -177,6 +180,12 @@ export default function AttendanceTrendChart() {
                 const hasData = d.total > 0;
                 const heightPct = hasData ? Math.max(2, d.percentage) : 0;
                 const dateLabel = formatShortDate(d.date);
+                const isHoliday = !!d.is_holiday;
+                const tooltipSubtitle = hasData
+                  ? `${d.percentage}% · ${d.present}/${d.total}${isHoliday ? " · Holiday" : ""}`
+                  : isHoliday
+                    ? `Holiday${d.holiday_reason ? ` · ${d.holiday_reason}` : ""}`
+                    : "Not marked";
                 return (
                   <div
                     key={d.date}
@@ -201,12 +210,24 @@ export default function AttendanceTrendChart() {
                       )}
                       style={{ height: `${heightPct}%` }}
                     />
+                    {/* Holiday chip — shown when there's no bar (no attendance marked) but the day is a holiday */}
+                    {!hasData && isHoliday && (
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[72px] flex flex-col items-center gap-1 pb-1 pointer-events-none">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                          <SunIcon className="w-4 h-4" />
+                        </div>
+                        <span
+                          className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider truncate max-w-full"
+                          title={d.holiday_reason || "Holiday"}
+                        >
+                          Holiday
+                        </span>
+                      </div>
+                    )}
                     {/* Full tooltip on hover */}
                     <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full px-2 py-1 rounded-md bg-gray-900 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-lg">
                       <div className="font-semibold">{dateLabel}</div>
-                      <div className="text-gray-300">
-                        {hasData ? `${d.percentage}% · ${d.present}/${d.total}` : "Not marked"}
-                      </div>
+                      <div className="text-gray-300">{tooltipSubtitle}</div>
                     </div>
                   </div>
                 );

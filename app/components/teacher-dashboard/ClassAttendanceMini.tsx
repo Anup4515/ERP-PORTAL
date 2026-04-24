@@ -8,6 +8,7 @@ import {
   AcademicCapIcon,
   CalendarDaysIcon,
   ChevronRightIcon,
+  SunIcon,
 } from "@heroicons/react/24/outline";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
@@ -16,6 +17,8 @@ interface DayPoint {
   percentage: number | null;
   present: number;
   total: number;
+  is_holiday?: boolean;
+  holiday_reason?: string | null;
 }
 interface ClassRow {
   class_section_id: number;
@@ -110,6 +113,7 @@ export default function ClassAttendanceMini() {
           <LegendDot color="bg-green-500" label="Good (≥ 85%)" />
           <LegendDot color="bg-amber-400" label="Average (60% - 84%)" />
           <LegendDot color="bg-red-500" label="Low (< 60%)" />
+          <LegendDot color="bg-amber-100 border border-amber-200" label="Holiday" />
         </div>
       </div>
 
@@ -152,26 +156,42 @@ export default function ClassAttendanceMini() {
 
               {/* Middle: 7-day pill grid */}
               <div className="grid grid-cols-7 gap-2 min-w-0">
-                {r.series.map((d) => (
-                  <div key={d.date} className="flex flex-col items-center gap-1 min-w-0">
-                    <span className="text-[11px] font-medium text-gray-500">
-                      {shortWeekday(d.date)}
-                    </span>
-                    <span
-                      title={
-                        d.percentage === null
-                          ? `${fullDateLabel(d.date)} · Not marked`
-                          : `${fullDateLabel(d.date)} · ${d.percentage}% · ${d.present}/${d.total}`
-                      }
-                      className={cn(
-                        "w-full text-center text-sm font-bold rounded-lg px-1 py-1.5 tabular-nums",
-                        pillClasses(d.percentage)
+                {r.series.map((d) => {
+                  const isHoliday = !!d.is_holiday;
+                  const hasAttendance = d.percentage !== null;
+                  const title = hasAttendance
+                    ? `${fullDateLabel(d.date)} · ${d.percentage}% · ${d.present}/${d.total}${isHoliday ? " · Holiday" : ""}`
+                    : isHoliday
+                      ? `${fullDateLabel(d.date)} · Holiday${d.holiday_reason ? ` · ${d.holiday_reason}` : ""}`
+                      : `${fullDateLabel(d.date)} · Not marked`;
+                  return (
+                    <div key={d.date} className="flex flex-col items-center gap-1 min-w-0">
+                      <span className="text-[11px] font-medium text-gray-500">
+                        {shortWeekday(d.date)}
+                      </span>
+                      {/* Holiday pill takes precedence when no attendance was marked. */}
+                      {!hasAttendance && isHoliday ? (
+                        <span
+                          title={title}
+                          className="w-full flex items-center justify-center gap-0.5 text-[11px] font-bold uppercase tracking-wider rounded-lg px-1 py-1.5 bg-amber-100 text-amber-700 border border-amber-200"
+                        >
+                          <SunIcon className="w-3 h-3" />
+                          Hol
+                        </span>
+                      ) : (
+                        <span
+                          title={title}
+                          className={cn(
+                            "w-full text-center text-sm font-bold rounded-lg px-1 py-1.5 tabular-nums",
+                            pillClasses(d.percentage)
+                          )}
+                        >
+                          {hasAttendance ? `${d.percentage}%` : "—"}
+                        </span>
                       )}
-                    >
-                      {d.percentage === null ? "—" : `${d.percentage}%`}
-                    </span>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Right: chevron */}

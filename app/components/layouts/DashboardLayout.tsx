@@ -28,6 +28,7 @@ import {
   InformationCircleIcon,
   UsersIcon,
   ClockIcon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 import { BuildingLibraryIcon } from "@heroicons/react/24/solid";
 
@@ -59,6 +60,7 @@ const schoolAdminNav: NavItem[] = [
     href: "/school-admin/reports",
     icon: DocumentChartBarIcon,
   },
+  { label: "Messages", href: "/school-admin/chat", icon: ChatBubbleLeftRightIcon },
   { label: "Settings", href: "/school-admin/settings", icon: Cog6ToothIcon },
   { label: "Instructions", href: "/school-admin/instructions", icon: InformationCircleIcon },
 ];
@@ -83,6 +85,7 @@ const teacherNav: NavItem[] = [
   { label: "Instructions", href: "/teacher/instructions", icon: InformationCircleIcon },
   { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
   { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },
+  { label: "Messages", href: "/teacher/chat", icon: ChatBubbleLeftRightIcon },
 ];
 
 interface DashboardLayoutProps {

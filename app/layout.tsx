@@ -4,8 +4,8 @@ import SessionProvider from "@/app/components/providers/SessionProvider"
 import ViewingSessionProvider from "@/app/components/providers/ViewingSessionProvider"
 
 export const metadata: Metadata = {
-  title: "WiserWits - School ERP Portal",
-  description: "Comprehensive school management system",
+  title: "WiserWits - Partner ERP Portal",
+  description: "Comprehensive management system for schools, coaching centres, colleges, and other partners",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

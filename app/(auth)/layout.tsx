@@ -30,7 +30,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               alt="WiserWits Logo"
               width={80}
               height={80}
-              className="drop-shadow-lg"
+              className="drop-shadow-lg rounded-lg"
               priority
             />
           </div>
@@ -39,10 +39,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </h1>
           <div className="w-16 h-1 bg-accent-400 rounded-full mb-5" />
           <p className="text-lg xl:text-xl text-primary-100/90 font-medium">
-            School ERP Portal
+            Partner ERP Portal
           </p>
           <p className="mt-4 text-sm text-primary-200/60 max-w-xs leading-relaxed">
-            Comprehensive school management system for administrators, teachers, and partners.
+            Comprehensive management system for schools, coaching centres, colleges, and other partners.
           </p>
         </div>
 
@@ -58,12 +58,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             alt="WiserWits Logo"
             width={36}
             height={36}
+            className="rounded-md"
             priority
           />
         </div>
         <div>
           <h1 className="text-lg font-bold text-white tracking-tight">WiserWits</h1>
-          <p className="text-xs text-primary-200/80">School ERP Portal</p>
+          <p className="text-xs text-primary-200/80">Partner ERP Portal</p>
         </div>
       </div>
 

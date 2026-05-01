@@ -107,6 +107,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Class section not found" }, { status: 404 })
     }
 
+    // Resolve partner billing context for Model 2 (paid school) auto-subscription.
+    // Model 1 (tier='free') skips this — students pay their own way.
+    const partnerRows = await executeQuery<{
+      id: number
+      tier: "free" | "paid"
+      default_plan_id: number | null
+      contract_ends_at: string | null
+    }[]>(
+      `SELECT p.id, p.tier, p.default_plan_id, p.contract_ends_at
+       FROM partners p
+       WHERE p.user_id = ?`,
+      [ctx.partnerUserId]
+    )
+    const partner = partnerRows[0]
+    const shouldAutoSubscribe = partner?.tier === "paid" && partner.default_plan_id != null
+
+    // For paid partners, look up plan duration so we can compute expires_at
+    // when contract_ends_at is unset. Done outside the transaction (read-only).
+    let planDurationDays: number | null = null
+    if (shouldAutoSubscribe) {
+      const planRows = await executeQuery<{ duration_days: number }[]>(
+        `SELECT duration_days FROM plans WHERE id = ? LIMIT 1`,
+        [partner.default_plan_id]
+      )
+      planDurationDays = planRows[0]?.duration_days ?? null
+    }
+
     let studentId: number = 0
 
     await executeTransaction(async (connection) => {
@@ -134,7 +161,43 @@ export async function POST(request: Request) {
         ) VALUES (?, ?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
         [studentId, class_section_id, ctx.partnerUserId, roll_number || null, student_type || "regular"]
       )
+
+      if (shouldAutoSubscribe) {
+        // expires_at: prefer contract end date; otherwise start + plan.duration_days;
+        // otherwise leave the row out (logged below) — better than guessing.
+        const expiresAtSql = partner.contract_ends_at
+          ? "?"
+          : planDurationDays != null
+            ? "DATE_ADD(NOW(), INTERVAL ? DAY)"
+            : null
+
+        if (expiresAtSql) {
+          const expiresAtParam = partner.contract_ends_at ?? planDurationDays
+          await connection.execute(
+            `INSERT INTO student_subscriptions (
+              student_id, plan_id, start_date, end_date, is_active,
+              status, starts_at, expires_at, payer_type, payer_partner_id,
+              created_at, updated_at
+            ) VALUES (?, ?, CURDATE(),
+              ${partner.contract_ends_at ? "?" : "DATE_ADD(CURDATE(), INTERVAL ? DAY)"},
+              1, 'active', NOW(), ${expiresAtSql}, 'partner', ?, NOW(), NOW())`,
+            [
+              studentId,
+              partner.default_plan_id,
+              expiresAtParam,
+              expiresAtParam,
+              partner.id,
+            ]
+          )
+        }
+      }
     })
+
+    if (partner?.tier === "paid" && !shouldAutoSubscribe) {
+      console.warn(
+        `Partner ${partner.id} is tier='paid' but has no default_plan_id — student ${studentId} created without auto-subscription`
+      )
+    }
 
     return NextResponse.json(
       { data: { id: studentId }, message: "Student created successfully" },

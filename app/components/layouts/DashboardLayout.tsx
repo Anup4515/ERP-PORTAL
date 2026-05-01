@@ -84,10 +84,11 @@ const teacherNav: NavItem[] = [
   { label: "Exams", href: "/teacher/exams", icon: DocumentTextIcon },
   { label: "Marks", href: "/teacher/marks", icon: ChartBarIcon },
   { label: "Timetable", href: "/teacher/timetable", icon: ClockIcon },
-  { label: "Instructions", href: "/teacher/instructions", icon: InformationCircleIcon },
   { label: "Holistic", href: "/teacher/holistic", icon: SparklesIcon },
   { label: "Reports", href: "/teacher/reports", icon: DocumentChartBarIcon },
   { label: "Messages", href: "/teacher/chat", icon: ChatBubbleLeftRightIcon },
+  { label: "Consultant", href: "/teacher/consultant-chat", icon: ChatBubbleLeftRightIcon },
+  { label: "Instructions", href: "/teacher/instructions", icon: InformationCircleIcon },
 ];
 
 interface DashboardLayoutProps {

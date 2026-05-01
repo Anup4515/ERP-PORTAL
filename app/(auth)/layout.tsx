@@ -30,7 +30,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               alt="WiserWits Logo"
               width={80}
               height={80}
-              className="drop-shadow-lg rounded-lg"
+              className="w-20 h-20 drop-shadow-lg rounded-lg"
               priority
             />
           </div>
@@ -58,7 +58,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             alt="WiserWits Logo"
             width={36}
             height={36}
-            className="rounded-md"
+            className="w-9 h-9 rounded-md"
             priority
           />
         </div>

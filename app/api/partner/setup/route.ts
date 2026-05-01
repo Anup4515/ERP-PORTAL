@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/app/lib/auth"
-import { executeQuery } from "@/app/lib/db"
+import { executeQuery, executeTransaction } from "@/app/lib/db"
 import { ResultSetHeader } from "mysql2/promise"
 
 export async function POST(request: Request) {
@@ -74,30 +74,72 @@ export async function POST(request: Request) {
     const suffix = Math.floor(1000 + Math.random() * 9000)
     const partner_code = `${prefix}${suffix}`
 
-    const result = await executeQuery<ResultSetHeader>(
-      `INSERT INTO partners (user_id, partner_type, partner_name, partner_code, contact_person, contact_email, contact_phone, address, city, state, pincode, registration_number, affiliated_board, website, logo, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [
-        session.user.user_id,
-        partner_type,
-        partner_name,
-        partner_code,
-        contact_person || null,
-        contact_email || null,
-        contact_phone || null,
-        address || null,
-        city || null,
-        state || null,
-        pincode || null,
-        registration_number || null,
-        affiliated_board || null,
-        website || null,
-        logo || null,
-      ]
+    // Pull pre-assigned tier/plan/contract from admin_panel (Option C bridge).
+    // Only consume rows that haven't been applied yet — once applied_at is
+    // stamped, future tier changes go straight to partners.tier via a
+    // separate admin UI (not yet built).
+    const assignments = await executeQuery<{
+      id: number
+      tier: "free" | "paid"
+      default_plan_id: number | null
+      contract_ends_at: string | null
+    }[]>(
+      `SELECT id, tier, default_plan_id, contract_ends_at
+       FROM partner_assignments
+       WHERE user_id = ? AND applied_at IS NULL
+       LIMIT 1`,
+      [session.user.user_id]
     )
+    const assignment = assignments[0]
+    const tier = assignment?.tier ?? "free"
+    const defaultPlanId = assignment?.default_plan_id ?? null
+    const contractEndsAt = assignment?.contract_ends_at ?? null
+
+    let insertedId = 0
+
+    await executeTransaction(async (connection) => {
+      const [result] = await connection.execute(
+        `INSERT INTO partners (
+          user_id, partner_type, partner_name, partner_code,
+          contact_person, contact_email, contact_phone,
+          address, city, state, pincode, registration_number,
+          affiliated_board, website, logo,
+          tier, default_plan_id, contract_ends_at,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          session.user.user_id,
+          partner_type,
+          partner_name,
+          partner_code,
+          contact_person || null,
+          contact_email || null,
+          contact_phone || null,
+          address || null,
+          city || null,
+          state || null,
+          pincode || null,
+          registration_number || null,
+          affiliated_board || null,
+          website || null,
+          logo || null,
+          tier,
+          defaultPlanId,
+          contractEndsAt,
+        ]
+      )
+      insertedId = (result as ResultSetHeader).insertId
+
+      if (assignment) {
+        await connection.execute(
+          `UPDATE partner_assignments SET applied_at = NOW() WHERE id = ?`,
+          [assignment.id]
+        )
+      }
+    })
 
     return NextResponse.json({
-      data: { id: result.insertId },
+      data: { id: insertedId, tier },
       message: "Partner created successfully",
     })
   } catch (error) {

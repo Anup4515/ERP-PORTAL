@@ -16,7 +16,7 @@ export default function SetupPartnerLayout({
               alt="WiserWits Logo"
               width={36}
               height={36}
-              className="rounded-lg"
+              className="w-9 h-9 rounded-lg"
             />
             <span className="text-lg font-semibold text-primary-700">
               WiserWits

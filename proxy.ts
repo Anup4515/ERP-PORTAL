@@ -5,7 +5,7 @@ import { rateLimit } from "@/app/lib/rate-limit"
 
 const loginLimiter = rateLimit({ interval: 60_000, maxRequests: 5 })
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Rate limit login attempts (5 per minute per IP)

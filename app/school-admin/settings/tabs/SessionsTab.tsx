@@ -196,7 +196,11 @@ export default function SessionsTab() {
             <Button
               variant="secondary"
               size="md"
-              onClick={() => router.push("/school-admin/transition")}
+              disabled={isViewingPastSession}
+              onClick={() => {
+                if (isViewingPastSession) return;
+                router.push("/school-admin/transition");
+              }}
             >
               <ArrowPathIcon className="h-4 w-4" />
               Session Transition

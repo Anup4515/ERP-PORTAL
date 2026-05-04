@@ -12,6 +12,7 @@ import {
   Modal,
   LoadingSkeleton,
 } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import {
   ArrowLeftIcon,
   PencilSquareIcon,
@@ -88,6 +89,7 @@ interface EditForm {
 export default function TeacherDetailPage() {
   const params = useParams();
   const teacherId = params.id as string;
+  const { isViewingPastSession } = useViewingSession();
 
   const [teacher, setTeacher] = useState<TeacherDetail | null>(null);
   const [assignments, setAssignments] = useState<Assignments | null>(null);
@@ -135,6 +137,7 @@ export default function TeacherDetailPage() {
   };
 
   const handleResetPassword = async () => {
+    if (isViewingPastSession) return;
     if (newPassword.length < 6) {
       setPasswordError("Password must be at least 6 characters");
       return;
@@ -245,6 +248,7 @@ export default function TeacherDetailPage() {
 
   const handleSave = async () => {
     if (!teacher) return;
+    if (isViewingPastSession) return;
     const { valid, errors } = validateForm();
     if (!valid) {
       scrollToFirstError(
@@ -351,6 +355,7 @@ export default function TeacherDetailPage() {
 
   // Save class assignment
   const handleSaveClassAssignment = async () => {
+    if (isViewingPastSession) return;
     const classSectionId = getClassSectionId(classFormClassId, classFormSectionId);
     if (!classSectionId || !classFormRole) {
       setAssignError("Please select class, section, and role.");
@@ -395,6 +400,7 @@ export default function TeacherDetailPage() {
 
   // Save subject assignment
   const handleSaveSubjectAssignment = async () => {
+    if (isViewingPastSession) return;
     if (selectedSubjectIds.length === 0) {
       setAssignError("Please select at least one subject.");
       return;
@@ -435,6 +441,7 @@ export default function TeacherDetailPage() {
 
   // Remove a class assignment
   const handleRemoveClassAssignment = async (classSectionId: number) => {
+    if (isViewingPastSession) return;
     setAssignSaving(true);
     try {
       const remaining = (assignments?.class_assignments || [])
@@ -459,6 +466,7 @@ export default function TeacherDetailPage() {
 
   // Remove a subject assignment
   const handleRemoveSubjectAssignment = async (subjectId: number) => {
+    if (isViewingPastSession) return;
     setAssignSaving(true);
     try {
       const remainingSubjectIds = (assignments?.subject_assignments || [])
@@ -550,12 +558,18 @@ export default function TeacherDetailPage() {
           </h2>
           {!isEditing ? (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={openPasswordModal}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isViewingPastSession}
+                onClick={openPasswordModal}
+              >
                 Reset Password
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                disabled={isViewingPastSession}
                 onClick={() => setIsEditing(true)}
               >
                 <PencilSquareIcon className="h-4 w-4" />
@@ -711,7 +725,12 @@ export default function TeacherDetailPage() {
           <h2 className="text-xl font-semibold text-primary-900">
             Class Assignments
           </h2>
-          <Button variant="primary" size="sm" onClick={openClassAssignModal}>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isViewingPastSession}
+            onClick={openClassAssignModal}
+          >
             <PlusIcon className="h-4 w-4" />
             Add Assignment
           </Button>
@@ -752,9 +771,9 @@ export default function TeacherDetailPage() {
                     <td className="px-6 py-3 text-right">
                       <button
                         onClick={() => handleRemoveClassAssignment(a.class_section_id)}
-                        disabled={assignSaving}
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="Remove assignment"
+                        disabled={assignSaving || isViewingPastSession}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={isViewingPastSession ? "Read-only — past session" : "Remove assignment"}
                       >
                         <TrashIcon className="h-4 w-4" />
                       </button>

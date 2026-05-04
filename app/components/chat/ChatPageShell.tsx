@@ -8,6 +8,7 @@ import {
   MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -65,6 +66,7 @@ function initials(name: string): string {
 
 export default function ChatPageShell({ selfUserId, role }: ChatPageShellProps) {
   const { label, labelPossessive } = usePartnerBranding();
+  const { isViewingPastSession } = useViewingSession();
   const labelTitle = titleCase(label);
   const adminRoleLabel = `${labelTitle} Admin`;
   const subtitle =
@@ -193,6 +195,7 @@ export default function ChatPageShell({ selfUserId, role }: ChatPageShellProps) 
   const handleSend = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (isViewingPastSession) return;
       const body = draft.trim();
       if (!body || !activeThreadId || sending) return;
       setSending(true);
@@ -224,7 +227,7 @@ export default function ChatPageShell({ selfUserId, role }: ChatPageShellProps) 
         setSending(false);
       }
     },
-    [draft, activeThreadId, sending, selfUserId, fetchContacts]
+    [draft, activeThreadId, sending, selfUserId, fetchContacts, isViewingPastSession]
   );
 
   const filteredContacts = useMemo(() => {
@@ -398,20 +401,26 @@ export default function ChatPageShell({ selfUserId, role }: ChatPageShellProps) 
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => {
+                      if (isViewingPastSession) return;
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         handleSend(e as unknown as React.FormEvent);
                       }
                     }}
-                    placeholder="Write a message..."
+                    disabled={isViewingPastSession}
+                    placeholder={
+                      isViewingPastSession
+                        ? "Read-only — switch to the current session to send messages"
+                        : "Write a message..."
+                    }
                     rows={2}
-                    className="flex-1 resize-none text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                    className="flex-1 resize-none text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   />
                   <Button
                     type="submit"
                     variant="primary"
                     loading={sending}
-                    disabled={!draft.trim()}
+                    disabled={!draft.trim() || isViewingPastSession}
                   >
                     <PaperAirplaneIcon className="h-4 w-4" />
                     Send

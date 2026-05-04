@@ -107,7 +107,7 @@ const STEPS = [
 
 export default function SessionTransitionPage() {
   const router = useRouter();
-  const { refreshSessions } = useViewingSession();
+  const { refreshSessions, isViewingPastSession, sessions: viewingSessions, setViewingSessionId } = useViewingSession();
 
   // State
   const [step, setStep] = useState(0);
@@ -465,6 +465,50 @@ export default function SessionTransitionPage() {
             <Button variant="primary" size="lg" onClick={() => router.push("/school-admin/dashboard")}>
               Go to Dashboard
             </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ─── Read-only guard ─────────────────────────────────────────────────────
+  // A transition can only originate from the *current* session — running it
+  // from a past session would create a new session "after" something that's
+  // already historical, plus the API's source-session payload would be wrong.
+  // Block the wizard outright; the read-only banner above this content
+  // already explains the read-only context.
+  if (isViewingPastSession) {
+    const currentSession = viewingSessions.find((s) => s.is_current === 1);
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/school-admin/settings")}>
+            <ArrowLeftIcon className="h-4 w-4" />
+            Back to Settings
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-primary-900">Session Transition</h1>
+          </div>
+        </div>
+        <Card>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="text-5xl mb-3">🔒</div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              Read-only — past session
+            </h2>
+            <p className="text-sm text-gray-500 max-w-md mb-5">
+              You&apos;re viewing a previous academic session. A session transition
+              must be started from the current session.
+            </p>
+            {currentSession && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => setViewingSessionId(currentSession.id)}
+              >
+                Switch to current session ({currentSession.name})
+              </Button>
+            )}
           </div>
         </Card>
       </div>

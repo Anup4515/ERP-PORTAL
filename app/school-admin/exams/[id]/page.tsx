@@ -11,6 +11,7 @@ import {
   Select,
   LoadingSkeleton,
 } from "@/app/components/shared";
+import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import {
   ArrowLeftIcon,
   PencilSquareIcon,
@@ -49,6 +50,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ExamDetailPage() {
   const params = useParams();
   const examId = params.id as string;
+  const { isViewingPastSession } = useViewingSession();
 
   const [exam, setExam] = useState<Exam | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -105,6 +107,7 @@ export default function ExamDetailPage() {
   };
 
   const handleEditSave = async () => {
+    if (isViewingPastSession) return;
     setEditSaving(true);
     const res = await fetch(`/api/exams/${examId}`, {
       method: "PUT",
@@ -133,6 +136,7 @@ export default function ExamDetailPage() {
   };
 
   const handleSchedEditSave = async () => {
+    if (isViewingPastSession) return;
     if (!editingSchedule) return;
 
     // Frontend date validation
@@ -238,7 +242,12 @@ export default function ExamDetailPage() {
             >
               {exam.status.replace("_", " ")}
             </span>
-            <Button variant="outline" size="sm" onClick={openEditModal}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isViewingPastSession}
+              onClick={openEditModal}
+            >
               <PencilSquareIcon className="h-4 w-4" /> Edit
             </Button>
           </div>
@@ -339,8 +348,9 @@ export default function ExamDetailPage() {
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => openSchedEditModal(s)}
-                        className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="Edit schedule"
+                        disabled={isViewingPastSession}
+                        className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={isViewingPastSession ? "Read-only — past session" : "Edit schedule"}
                       >
                         <PencilSquareIcon className="h-4 w-4" />
                       </button>

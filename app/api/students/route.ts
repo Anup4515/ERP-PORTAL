@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getAuthContext, isAuthError, resolveSessionId, isSessionError, ensureCurrentSession } from "@/app/lib/auth-utils"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
 import { createStudentSchema, parseOrError } from "@/app/lib/validations"
+import { autoAssignDuesForNewEnrollment } from "@/app/lib/fee-assignment"
 
 export async function GET(request: Request) {
   try {
@@ -96,9 +97,11 @@ export async function POST(request: Request) {
       roll_number, student_type
     } = parsed.data
 
-    // Verify class_section_id belongs to this partner
-    const ownershipCheck = await executeQuery<{ id: number }[]>(
-      `SELECT ecs.id FROM erp_class_sections ecs
+    // Verify class_section_id belongs to this partner. We also pull session_id
+    // here so the auto-assign step inside the transaction doesn't need a
+    // second lookup.
+    const ownershipCheck = await executeQuery<{ id: number; session_id: number }[]>(
+      `SELECT ecs.id, ecs.session_id FROM erp_class_sections ecs
        JOIN erp_sessions es ON es.id = ecs.session_id
        WHERE ecs.id = ? AND es.partner_id = ?`,
       [class_section_id, ctx.partnerUserId]
@@ -106,6 +109,7 @@ export async function POST(request: Request) {
     if (ownershipCheck.length === 0) {
       return NextResponse.json({ error: "Class section not found" }, { status: 404 })
     }
+    const enrollmentSessionId = ownershipCheck[0].session_id
 
     // Resolve partner billing context for Model 2 (paid school) auto-subscription.
     // Model 1 (tier='free') skips this — students pay their own way.
@@ -135,6 +139,10 @@ export async function POST(request: Request) {
     }
 
     let studentId: number = 0
+    let autoAssignResult: { structuresMatched: number; duesInserted: number } = {
+      structuresMatched: 0,
+      duesInserted: 0,
+    }
 
     await executeTransaction(async (connection) => {
       const [studentResult] = await connection.execute(
@@ -155,11 +163,28 @@ export async function POST(request: Request) {
       )
       studentId = (studentResult as any).insertId
 
-      await connection.execute(
+      const [enrollmentResult] = await connection.execute(
         `INSERT INTO erp_student_enrollments (
           student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
         [studentId, class_section_id, ctx.partnerUserId, roll_number || null, student_type || "regular"]
+      )
+      const enrollmentId = (enrollmentResult as { insertId: number }).insertId
+
+      // Auto-assign every fee structure in scope (whole-session + this
+      // class_section's structures) to the new enrollment. enrollment_date is
+      // CURDATE() per the INSERT above; passing today's date here keeps the
+      // monthly window clamping in sync (only the YYYY-MM portion is read).
+      const todayISO = new Date().toISOString().slice(0, 10)
+      autoAssignResult = await autoAssignDuesForNewEnrollment(
+        connection,
+        ctx.partnerUserId,
+        enrollmentSessionId,
+        {
+          id: enrollmentId,
+          class_section_id,
+          enrollment_date: todayISO,
+        }
       )
 
       if (shouldAutoSubscribe) {
@@ -199,15 +224,76 @@ export async function POST(request: Request) {
       )
     }
 
+    // Surface auto-assigned dues in the response so admins aren't surprised
+    // by a fresh student showing up with pending fees later. The frontend can
+    // either ignore this or show "Student added · 12 dues assigned".
+    let message = "Student created successfully"
+    if (autoAssignResult.duesInserted > 0) {
+      const { duesInserted, structuresMatched } = autoAssignResult
+      message += ` · ${duesInserted} fee due${duesInserted === 1 ? "" : "s"} assigned from ${structuresMatched} fee structure${structuresMatched === 1 ? "" : "s"}`
+    }
+
     return NextResponse.json(
-      { data: { id: studentId }, message: "Student created successfully" },
+      {
+        data: {
+          id: studentId,
+          fees_assigned: autoAssignResult.duesInserted,
+          fee_structures_matched: autoAssignResult.structuresMatched,
+        },
+        message,
+      },
       { status: 201 }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Students POST error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    const err = error as { code?: string; sqlMessage?: string; message?: string }
+    if (err?.code === "ER_DUP_ENTRY") {
+      const sqlMsg = err.sqlMessage || err.message || ""
+
+      // Roll-number-in-section collision: look up the next free roll so the
+      // caller can recover with one click instead of guessing.
+      if (sqlMsg.includes("uq_erp_enrollment_section_roll")) {
+        const body = await request.clone().json().catch(() => ({})) as {
+          class_section_id?: number
+          roll_number?: number | string
+        }
+        const csId = Number(body.class_section_id)
+        let suggested: number | null = null
+        if (Number.isFinite(csId) && csId > 0) {
+          const rows = await executeQuery<{ next_roll: number | null }[]>(
+            `SELECT COALESCE(MAX(roll_number), 0) + 1 AS next_roll
+               FROM erp_student_enrollments
+              WHERE class_section_id = ?`,
+            [csId]
+          )
+          suggested = rows[0]?.next_roll ?? null
+        }
+        return NextResponse.json(
+          {
+            error: `Roll number ${body.roll_number} is already used in this class.${suggested != null ? ` Try ${suggested}.` : ""}`,
+            details: {
+              field: "roll_number",
+              attempted: body.roll_number,
+              suggested,
+            },
+          },
+          { status: 409 }
+        )
+      }
+
+      // Email collision (students.email is unique).
+      if (sqlMsg.toLowerCase().includes("email")) {
+        return NextResponse.json(
+          {
+            error: "A student with this email already exists.",
+            details: { field: "email" },
+          },
+          { status: 409 }
+        )
+      }
+
       return NextResponse.json(
-        { error: "A student with this email or roll number already exists" },
+        { error: "A student with these details already exists." },
         { status: 409 }
       )
     }

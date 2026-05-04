@@ -30,6 +30,7 @@ import {
   ClockIcon,
   ChatBubbleLeftRightIcon,
   HeartIcon,
+  BanknotesIcon,
 } from "@heroicons/react/24/outline";
 import { BuildingLibraryIcon } from "@heroicons/react/24/solid";
 
@@ -53,6 +54,7 @@ const schoolAdminNav: NavItem[] = [
   { label: "Calendar", href: "/school-admin/calendar", icon: CalendarDaysIcon },
   { label: "Exams", href: "/school-admin/exams", icon: DocumentTextIcon },
   { label: "Marks", href: "/school-admin/marks", icon: ChartBarIcon },
+  { label: "Fees", href: "/school-admin/fees", icon: BanknotesIcon },
   { label: "Timetable", href: "/school-admin/timetable", icon: ClockIcon },
   { label: "Staff", href: "/school-admin/staff", icon: UsersIcon },
   { label: "Holistic", href: "/school-admin/holistic", icon: SparklesIcon },

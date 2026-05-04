@@ -363,8 +363,19 @@ export default function StudentsPage() {
       });
 
       if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error || "Failed to create student");
+        const json = await res.json().catch(() => ({}));
+        // The API returns `details.field` (e.g. "roll_number" / "email") for
+        // unique-constraint violations so the message lands on the right field
+        // — including the suggested next free roll number when applicable.
+        const field = (json?.details?.field as string | undefined) || null;
+        const message = json?.error || "Failed to create student";
+        if (field) {
+          setFormErrors({ [field]: message });
+          scrollToFirstError([field], { errors: { [field]: message } });
+        } else {
+          setFormErrors({ _general: message });
+        }
+        return;
       }
 
       setShowAddModal(false);

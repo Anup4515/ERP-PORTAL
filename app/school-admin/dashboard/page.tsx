@@ -9,8 +9,12 @@ import {
   DocumentTextIcon,
   ArrowRightIcon,
   XMarkIcon,
+  BanknotesIcon,
+  CurrencyRupeeIcon,
+  UserPlusIcon,
 } from "@heroicons/react/24/outline";
 import { Card, StatsCard } from "@/app/components/shared";
+import SupportButton from "@/app/components/shared/SupportButton";
 import { useViewingSession } from "@/app/components/providers/ViewingSessionProvider";
 import { usePartnerBranding } from "@/app/components/providers/PartnerBrandingProvider";
 import AttendanceTrendChart from "@/app/components/dashboard/AttendanceTrendChart";
@@ -34,12 +38,58 @@ interface DashboardStats {
   upcomingExamsList: UpcomingExam[];
 }
 
+type ActivityType =
+  | "student_added"
+  | "payment_received"
+  | "fee_structure_created"
+  | "exam_created"
+  | "teacher_added";
+
+interface ActivityItem {
+  type: ActivityType;
+  title: string;
+  subtitle: string | null;
+  // Unix epoch milliseconds — see API for why this is a number, not an ISO
+  // string. (Avoids TIMESTAMP/timezone drift.)
+  timestamp: number;
+  href?: string;
+}
+
+function relativeTime(ms: number): string {
+  const diff = Date.now() - ms;
+  if (diff < 0) return "just now"; // small clock skew
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr${h === 1 ? "" : "s"} ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d} day${d === 1 ? "" : "s"} ago`;
+  return new Date(ms).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+const ACTIVITY_VISUAL: Record<
+  ActivityType,
+  { Icon: typeof AcademicCapIcon; bg: string; fg: string }
+> = {
+  student_added:          { Icon: UserPlusIcon,         bg: "bg-primary-50",  fg: "text-primary-600" },
+  payment_received:       { Icon: CurrencyRupeeIcon,    bg: "bg-green-50",    fg: "text-green-600"   },
+  fee_structure_created:  { Icon: BanknotesIcon,        bg: "bg-amber-50",    fg: "text-amber-600"   },
+  exam_created:           { Icon: DocumentTextIcon,     bg: "bg-blue-50",     fg: "text-blue-600"    },
+  teacher_added:          { Icon: UserGroupIcon,        bg: "bg-indigo-50",   fg: "text-indigo-600"  },
+};
+
 export default function SchoolAdminDashboardPage() {
   const { viewingSession, isViewingPastSession, withSessionId } = useViewingSession();
   const { label } = usePartnerBranding();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
   useEffect(() => {
     const dismissed = sessionStorage.getItem("guide_dismissed");
@@ -63,16 +113,39 @@ export default function SchoolAdminDashboardPage() {
     fetchStats();
   }, [viewingSession?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchActivity() {
+      try {
+        setActivityLoading(true);
+        const res = await fetch(withSessionId("/api/dashboard/recent-activity"));
+        const json = await res.json();
+        if (!cancelled) setActivity(json.data ?? []);
+      } catch {
+        if (!cancelled) setActivity([]);
+      } finally {
+        if (!cancelled) setActivityLoading(false);
+      }
+    }
+    fetchActivity();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewingSession?.id, withSessionId]);
+
   return (
     <div className="space-y-6">
       {/* Welcome banner */}
-      <div className="pb-2">
-        <h1 className="text-3xl sm:text-4xl font-bold text-primary-900 tracking-tight">
-          Welcome, Admin!
-        </h1>
-        <p className="text-gray-500 mt-1 text-base">
-          Maintain your {label} operations effortlessly
-        </p>
+      <div className="pb-2 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-primary-900 tracking-tight">
+            Welcome, Admin!
+          </h1>
+          <p className="text-gray-500 mt-1 text-base">
+            Maintain your {label} operations effortlessly
+          </p>
+        </div>
+        <SupportButton />
       </div>
 
       {/* Getting Started Guide Banner */}
@@ -196,7 +269,7 @@ export default function SchoolAdminDashboardPage() {
           <h2 className="text-lg font-semibold text-primary-900 mb-4">
             Recent Activity
           </h2>
-          {loading ? (
+          {activityLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
@@ -208,6 +281,37 @@ export default function SchoolAdminDashboardPage() {
                 </div>
               ))}
             </div>
+          ) : activity.length > 0 ? (
+            <ul className="divide-y divide-gray-100 -my-2 max-h-96 overflow-y-auto">
+              {activity.map((item, idx) => {
+                const visual = ACTIVITY_VISUAL[item.type];
+                const Icon = visual.Icon;
+                return (
+                  <li key={`${item.type}-${item.timestamp}-${idx}`}>
+                    <div className="flex items-start gap-3 py-2.5">
+                      <div
+                        className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${visual.bg} ${visual.fg}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-800 truncate">
+                          {item.title}
+                        </p>
+                        {item.subtitle && (
+                          <p className="text-xs text-gray-500 truncate">
+                            {item.subtitle}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 mt-1">
+                        {relativeTime(item.timestamp)}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-gray-400">
               <svg

@@ -193,6 +193,14 @@ export const recordFeePaymentSchema = z.object({
   remarks: optionalString,
 })
 
+// ─── Support queries ──────────────────────────────────────────
+
+export const createSupportQuerySchema = z.object({
+  category: z.enum(["technical", "feature", "general"]).default("general"),
+  subject: z.string().min(3, "Subject must be at least 3 characters").max(200),
+  message: z.string().min(10, "Please describe your query in at least 10 characters").max(5000),
+})
+
 // ─── Helper ────────────────────────────────────────────────────
 
 type ParseResult<T> =

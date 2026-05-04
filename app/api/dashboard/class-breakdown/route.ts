@@ -33,13 +33,13 @@ export async function GET(request: Request) {
          sec.name                                               AS section_name,
          c.grade_level                                          AS grade_level,
          COUNT(DISTINCT CASE WHEN se.status IN ('active','completed') THEN se.student_id END) AS student_count,
-         COUNT(DISTINCT CASE WHEN ar.date = CURDATE() AND ar.status = 'present' THEN ar.id END) AS present_today,
-         COUNT(DISTINCT CASE WHEN ar.date = CURDATE() THEN ar.id END)                           AS total_marked_today
+         COUNT(DISTINCT CASE WHEN ar.date = CURRENT_DATE AND ar.status = 'present' THEN ar.id END) AS present_today,
+         COUNT(DISTINCT CASE WHEN ar.date = CURRENT_DATE THEN ar.id END)                           AS total_marked_today
        FROM erp_class_sections cs
        JOIN classes c   ON c.id   = cs.class_id
        JOIN sections sec ON sec.id = cs.section_id
        LEFT JOIN erp_student_enrollments se ON se.class_section_id = cs.id
-       LEFT JOIN erp_attendance_records  ar ON ar.student_enrollment_id = se.id AND ar.date = CURDATE()
+       LEFT JOIN erp_attendance_records  ar ON ar.student_enrollment_id = se.id AND ar.date = CURRENT_DATE
        WHERE cs.session_id = ?
        GROUP BY cs.id, c.id, c.name, sec.name, c.grade_level, c.display_order
        ORDER BY c.display_order ASC, c.grade_level ASC, c.name ASC, sec.name ASC`,

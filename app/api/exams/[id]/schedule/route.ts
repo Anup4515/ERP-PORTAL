@@ -84,14 +84,15 @@ export async function POST(
     )
     if (subCheck.length === 0) return NextResponse.json({ error: "Subject not found in this class" }, { status: 404 })
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_exam_schedules (exam_id, subject_id, exam_date, exam_time, duration_minutes, maximum_marks, room_number, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+       RETURNING id`,
       [examId, subject_id, exam_date || null, exam_time || null, duration_minutes || null, maximum_marks, room_number || null]
     )
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Schedule added" },
+      { data: { id: result[0].id }, message: "Schedule added" },
       { status: 201 }
     )
   } catch (error) {

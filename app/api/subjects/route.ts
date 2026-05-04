@@ -83,14 +83,15 @@ export async function POST(request: Request) {
 
     for (const csId of csIds) {
       try {
-        const result = await executeQuery<{ insertId: number }>(
+        const result = await executeQuery<{ id: number }[]>(
           `INSERT INTO erp_subjects (class_section_id, name, code, teacher_id, sort_order, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+           VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+           RETURNING id`,
           [csId, name, code || null, teacher_id || null, sort_order ?? 0]
         )
-        insertedIds.push((result as any).insertId)
+        insertedIds.push(result[0].id)
       } catch (err: any) {
-        if (err?.code === "ER_DUP_ENTRY") {
+        if (err?.code === "23505") {
           skipped.push(csId)
         } else {
           throw err
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
     )
   } catch (error: any) {
     console.error("Subjects POST error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "A subject with this name already exists in this class section" },
         { status: 409 }

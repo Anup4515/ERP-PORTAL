@@ -163,14 +163,18 @@ export async function DELETE(
         [ctx.partnerUserId]
       )
       if ((ptRows as any[]).length > 0) {
+        // PG: rebuild the jsonb array dropping any element equal to the
+        // teacher's user_id. jsonb_array_elements + jsonb_agg is the canonical
+        // pattern; COALESCE protects against an empty result becoming NULL.
         await connection.execute(
           `UPDATE partner_teachers
-           SET teacher_ids = JSON_REMOVE(
-             teacher_ids,
-             IFNULL(JSON_UNQUOTE(JSON_SEARCH(teacher_ids, 'one', ?)), '$[99999]')
-           ), updated_at = NOW()
+           SET teacher_ids = COALESCE((
+             SELECT jsonb_agg(elem)
+               FROM jsonb_array_elements(teacher_ids) elem
+              WHERE elem <> ?::jsonb
+           ), '[]'::jsonb), updated_at = NOW()
            WHERE partner_id = ?`,
-          [id, ctx.partnerUserId]
+          [JSON.stringify(Number(id)), ctx.partnerUserId]
         )
       }
 

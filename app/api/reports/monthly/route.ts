@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     // Holidays count
     const holidayRows = await executeQuery<{ cnt: number }[]>(
       `SELECT COUNT(*) as cnt FROM erp_calendar_days
-       WHERE session_id = ? AND date BETWEEN ? AND ? AND is_holiday = 1`,
+       WHERE session_id = ? AND date BETWEEN ? AND ? AND is_holiday = TRUE`,
       [student.session_id, startDate, endDate]
     )
     const holidayCount = holidayRows[0]?.cnt || 0

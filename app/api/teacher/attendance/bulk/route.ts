@@ -66,8 +66,8 @@ export async function POST(request: Request) {
 
     // Get holiday dates to prevent marking on holidays
     const holidayRows = await executeQuery<{ date: string }[]>(
-      `SELECT DATE_FORMAT(date, '%Y-%m-%d') as date FROM erp_calendar_days
-       WHERE session_id = ? AND is_holiday = 1`,
+      `SELECT to_char(date, 'YYYY-MM-DD') as date FROM erp_calendar_days
+       WHERE session_id = ? AND is_holiday = TRUE`,
       [sess.sessionId]
     )
     const holidaySet = new Set(holidayRows.map((r) => r.date))

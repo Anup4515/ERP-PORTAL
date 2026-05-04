@@ -24,10 +24,10 @@ export async function GET(request: Request) {
     const subjectStats = await executeQuery(
       `SELECT m.subject_id, sub.name as subject_name,
               COUNT(*) as total_students,
-              SUM(CASE WHEN m.is_absent = 0 THEN 1 ELSE 0 END) as appeared,
-              ROUND(AVG(CASE WHEN m.is_absent = 0 THEN m.percentage END), 2) as avg_percentage,
-              MAX(CASE WHEN m.is_absent = 0 THEN m.obtained_marks END) as highest,
-              MIN(CASE WHEN m.is_absent = 0 THEN m.obtained_marks END) as lowest
+              SUM(CASE WHEN m.is_absent = FALSE THEN 1 ELSE 0 END) as appeared,
+              ROUND(AVG(CASE WHEN m.is_absent = FALSE THEN m.percentage END), 2) as avg_percentage,
+              MAX(CASE WHEN m.is_absent = FALSE THEN m.obtained_marks END) as highest,
+              MIN(CASE WHEN m.is_absent = FALSE THEN m.obtained_marks END) as lowest
        FROM erp_marks m
        JOIN erp_subjects sub ON sub.id = m.subject_id
        JOIN erp_student_enrollments se2 ON se2.id = m.student_enrollment_id
@@ -55,9 +55,9 @@ export async function GET(request: Request) {
 
     const studentTotals = await executeQuery(
       `SELECT m.student_enrollment_id, se.roll_number, s.first_name, s.last_name,
-              SUM(CASE WHEN m.is_absent = 0 THEN m.obtained_marks ELSE 0 END) as total_obtained,
+              SUM(CASE WHEN m.is_absent = FALSE THEN m.obtained_marks ELSE 0 END) as total_obtained,
               SUM(m.maximum_marks) as total_maximum,
-              ROUND(SUM(CASE WHEN m.is_absent = 0 THEN m.obtained_marks ELSE 0 END) / SUM(m.maximum_marks) * 100, 2) as overall_percentage
+              ROUND(SUM(CASE WHEN m.is_absent = FALSE THEN m.obtained_marks ELSE 0 END) / SUM(m.maximum_marks) * 100, 2) as overall_percentage
        FROM erp_marks m
        JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
        JOIN students s ON s.id = se.student_id

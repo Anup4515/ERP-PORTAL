@@ -73,20 +73,21 @@ export async function POST(
       return NextResponse.json({ error: "Student not found" }, { status: 404 })
     }
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_student_enrollments (
         student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, CURRENT_DATE, 'active', NOW(), NOW())
+      RETURNING id`,
       [studentId, class_section_id, ctx.partnerUserId, roll_number || null, student_type || "regular"]
     )
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Enrollment created successfully" },
+      { data: { id: result[0].id }, message: "Enrollment created successfully" },
       { status: 201 }
     )
   } catch (error: any) {
     console.error("Student enrollment POST error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "Student is already enrolled in this class section or roll number is taken" },
         { status: 409 }

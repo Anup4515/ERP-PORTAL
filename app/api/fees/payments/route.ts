@@ -132,10 +132,11 @@ export async function POST(request: Request) {
 
     let paymentId = 0
     await executeTransaction(async (connection) => {
-      const [insertResult] = await connection.execute(
+      const [insertedRows] = await connection.execute<{ id: number }[]>(
         `INSERT INTO erp_fee_payments
            (partner_id, due_id, amount, paid_date, payment_mode, reference_no, remarks)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         RETURNING id`,
         [
           ctx.partnerUserId,
           due_id,
@@ -146,7 +147,7 @@ export async function POST(request: Request) {
           remarks || null,
         ]
       )
-      paymentId = (insertResult as { insertId: number }).insertId
+      paymentId = insertedRows[0].id
 
       // Recompute amount_paid + status from the source of truth (the
       // payments table) rather than incrementing the cached column. This

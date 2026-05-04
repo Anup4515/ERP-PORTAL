@@ -189,13 +189,17 @@ export async function POST(
         )
       }
 
-      const [result] = await connection.execute(
-        `INSERT IGNORE INTO erp_fee_dues
+      // PG: ON CONFLICT DO NOTHING + RETURNING id gives us the same
+      // semantic as MySQL's INSERT IGNORE + affectedRows.
+      const [insertedRows] = await connection.execute<{ id: number }[]>(
+        `INSERT INTO erp_fee_dues
            (partner_id, structure_id, period_label, student_enrollment_id, amount_due, due_date)
-         VALUES ${placeholders.join(", ")}`,
+         VALUES ${placeholders.join(", ")}
+         ON CONFLICT (structure_id, student_enrollment_id, period_label) DO NOTHING
+         RETURNING id`,
         values
       )
-      assigned = (result as { affectedRows: number }).affectedRows
+      assigned = insertedRows.length
     })
 
     const totalRows = rows.length

@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
     // Verify teacher is assigned to this class-section
     const sessRows = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
+      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = TRUE LIMIT 1",
       [ctx.partnerUserId]
     )
     if (sessRows.length === 0) {
@@ -92,12 +92,13 @@ export async function POST(request: Request) {
     let studentId = 0
 
     await executeTransaction(async (connection) => {
-      const [studentResult] = await connection.execute(
+      const [studentRows] = await connection.execute<{ id: number }[]>(
         `INSERT INTO students (
           created_by, first_name, last_name, middle_name, gender, date_of_birth,
           email, phone, father_name, mother_name, guardian_name, guardian_phone, guardian_email,
           status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+        RETURNING id`,
         [
           ctx.userId, first_name, last_name, middle_name || null,
           gender || null, date_of_birth || null, email, phone || null,
@@ -105,12 +106,12 @@ export async function POST(request: Request) {
           guardian_phone || null, guardian_email || null,
         ]
       )
-      studentId = (studentResult as any).insertId
+      studentId = studentRows[0].id
 
       await connection.execute(
         `INSERT INTO erp_student_enrollments (
           student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 'regular', CURDATE(), 'active', NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, 'regular', CURRENT_DATE, 'active', NOW(), NOW())`,
         [studentId, class_section_id, ctx.partnerUserId, roll_number || null]
       )
     })
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
     )
   } catch (error: any) {
     console.error("Teacher student POST error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "A student with this email or roll number already exists" },
         { status: 409 }

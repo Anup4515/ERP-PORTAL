@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/app/lib/auth"
 import { executeQuery, executeTransaction } from "@/app/lib/db"
-import { ResultSetHeader } from "mysql2/promise"
 
 export async function POST(request: Request) {
   try {
@@ -98,15 +97,15 @@ export async function POST(request: Request) {
     let insertedId = 0
 
     await executeTransaction(async (connection) => {
-      const [result] = await connection.execute(
+      const [rows] = await connection.execute<{ id: number }[]>(
         `INSERT INTO partners (
           user_id, partner_type, partner_name, partner_code,
           contact_person, contact_email, contact_phone,
           address, city, state, pincode, registration_number,
           affiliated_board, website, logo,
-          tier, default_plan_id, contract_ends_at,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          tier, default_plan_id, contract_ends_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id`,
         [
           session.user.user_id,
           partner_type,
@@ -128,7 +127,7 @@ export async function POST(request: Request) {
           contractEndsAt,
         ]
       )
-      insertedId = (result as ResultSetHeader).insertId
+      insertedId = rows[0].id
 
       if (assignment) {
         await connection.execute(

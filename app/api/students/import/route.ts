@@ -107,11 +107,12 @@ export async function POST(request: Request) {
         }
 
         try {
-          const [studentResult] = await connection.execute(
+          const [studentRows] = await connection.execute<{ id: number }[]>(
             `INSERT INTO students (
               created_by, first_name, last_name, email, gender, date_of_birth,
               phone, father_name, mother_name, status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+            RETURNING id`,
             [
               ctx.userId || null,
               first_name,
@@ -124,19 +125,19 @@ export async function POST(request: Request) {
               getValue("mother_name") || null,
             ]
           )
-          const studentId = (studentResult as any).insertId
+          const studentId = studentRows[0].id
 
           const rollNumber = getValue("roll_number")
           await connection.execute(
             `INSERT INTO erp_student_enrollments (
               student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, 'regular', CURDATE(), 'active', NOW(), NOW())`,
+            ) VALUES (?, ?, ?, ?, 'regular', CURRENT_DATE, 'active', NOW(), NOW())`,
             [studentId, class_section_id, ctx.partnerUserId, rollNumber || null]
           )
 
           imported++
         } catch (err: any) {
-          if (err?.code === "ER_DUP_ENTRY") {
+          if (err?.code === "23505") {
             errors.push({ row: rowNum, message: `Duplicate entry for email ${email} or roll number` })
           } else {
             errors.push({ row: rowNum, message: err?.message || "Unknown error" })

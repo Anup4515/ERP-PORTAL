@@ -25,15 +25,15 @@ export async function GET(request: Request) {
     await executeQuery(
       `UPDATE erp_exams e
        SET e.status = CASE
-         WHEN e.end_date IS NOT NULL AND CURDATE() > e.end_date THEN 'completed'
-         WHEN e.start_date IS NOT NULL AND CURDATE() >= e.start_date THEN 'in_progress'
+         WHEN e.end_date IS NOT NULL AND CURRENT_DATE > e.end_date THEN 'completed'
+         WHEN e.start_date IS NOT NULL AND CURRENT_DATE >= e.start_date THEN 'in_progress'
          ELSE 'upcoming'
        END,
        e.updated_at = NOW()
        WHERE e.partner_id = ?
          AND e.status != CASE
-           WHEN e.end_date IS NOT NULL AND CURDATE() > e.end_date THEN 'completed'
-           WHEN e.start_date IS NOT NULL AND CURDATE() >= e.start_date THEN 'in_progress'
+           WHEN e.end_date IS NOT NULL AND CURRENT_DATE > e.end_date THEN 'completed'
+           WHEN e.start_date IS NOT NULL AND CURRENT_DATE >= e.start_date THEN 'in_progress'
            ELSE 'upcoming'
          END`,
       [ctx.partnerUserId]
@@ -125,12 +125,13 @@ export async function POST(request: Request) {
         }
 
         // Create exam
-        const [result] = await connection.execute(
+        const [examRows] = await connection.execute<{ id: number }[]>(
           `INSERT INTO erp_exams (class_section_id, partner_id, name, code, exam_type, start_date, end_date, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+           RETURNING id`,
           [csId, ctx.partnerUserId, name, code || null, examType, start_date || null, end_date || null, status]
         )
-        const examId = (result as any).insertId
+        const examId = examRows[0].id
         createdIds.push(examId)
 
         // Auto-add all subjects of this class-section to the exam schedule

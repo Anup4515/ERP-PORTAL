@@ -36,7 +36,7 @@ export async function GET() {
                 WHERE (c.sender_id = ? AND c.receiver_id = u.id)
                    OR (c.sender_id = u.id AND c.receiver_id = ?)
                 ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS last_message_id,
-              (SELECT UNIX_TIMESTAMP(c.created_at) FROM chats c
+              (SELECT EXTRACT(EPOCH FROM c.created_at) FROM chats c
                 WHERE (c.sender_id = ? AND c.receiver_id = u.id)
                    OR (c.sender_id = u.id AND c.receiver_id = ?)
                 ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS last_message_epoch,

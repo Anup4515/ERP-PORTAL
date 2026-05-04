@@ -76,7 +76,7 @@ async function getSchoolAdminStats(partnerUserId: number, schoolId: number, sess
      JOIN erp_student_enrollments se ON ar.student_enrollment_id = se.id
      JOIN erp_class_sections cs ON se.class_section_id = cs.id
      WHERE cs.session_id = ?
-       AND ar.date = CURDATE()`,
+       AND ar.date = CURRENT_DATE`,
     [currentSessionId]
   )
   const total = attendanceRows[0]?.total || 0

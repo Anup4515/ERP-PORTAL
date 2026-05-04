@@ -52,8 +52,8 @@ export async function GET(
       created_at: string
     }[]>(
       `SELECT id, thread_id, sender_id, body, read_at,
-              DATE_FORMAT(CONVERT_TZ(created_at, @@session.time_zone, '+00:00'),
-                          '%Y-%m-%dT%H:%i:%s.000Z') AS created_at
+              to_char(created_at AT TIME ZONE 'UTC',
+                      'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at
        FROM erp_chat_messages
        WHERE thread_id = ?${extraWhere}
        ORDER BY id ASC
@@ -102,9 +102,10 @@ export async function POST(
       return NextResponse.json({ error: "Message is too long (max 4000 chars)" }, { status: 400 })
     }
 
-    const insertResult = await executeQuery<{ insertId: number }>(
+    const insertResult = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_chat_messages (thread_id, sender_id, body, created_at, updated_at)
-       VALUES (?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, NOW(), NOW())
+       RETURNING id`,
       [threadId, ctx.userId, messageBody]
     )
 
@@ -123,7 +124,7 @@ export async function POST(
     return NextResponse.json(
       {
         data: {
-          id: insertResult.insertId,
+          id: insertResult[0].id,
           thread_id: threadId,
           sender_id: ctx.userId,
           body: messageBody,

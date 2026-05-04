@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     // Get the current session
     const sessions = await executeQuery<{ id: number }[]>(
-      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
+      "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = TRUE LIMIT 1",
       [ctx.partnerUserId]
     )
 
@@ -85,23 +85,24 @@ export async function POST(request: Request) {
 
     // Unset any previous default and set this as default
     await executeQuery(
-      "UPDATE erp_grading_schemes SET is_default = 0 WHERE partner_id = ?",
+      "UPDATE erp_grading_schemes SET is_default = FALSE WHERE partner_id = ?",
       [ctx.partnerUserId]
     )
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_grading_schemes (partner_id, session_id, name, type, is_default, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, TRUE, NOW(), NOW())
+       RETURNING id`,
       [ctx.partnerUserId, sessionId, name, type]
     )
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Grading scheme created successfully" },
+      { data: { id: result[0].id }, message: "Grading scheme created successfully" },
       { status: 201 }
     )
   } catch (error: any) {
     console.error("Grading schemes POST error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "A grading scheme with this name already exists" },
         { status: 409 }

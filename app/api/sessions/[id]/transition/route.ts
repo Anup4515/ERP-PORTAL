@@ -90,12 +90,13 @@ export async function POST(
 
     const result = await executeTransaction(async (connection) => {
       // ── Step 1: Create target session ──────────────────────────────
-      const [sessionResult] = await connection.execute(
+      const [sessionRows] = await connection.execute<{ id: number }[]>(
         `INSERT INTO erp_sessions (partner_id, name, start_date, end_date, is_current, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 0, NOW(), NOW())`,
+         VALUES (?, ?, ?, ?, FALSE, NOW(), NOW())
+         RETURNING id`,
         [ctx.partnerUserId, target_session_name, target_session_start_date, target_session_end_date]
       )
-      const targetSessionId = (sessionResult as any).insertId
+      const targetSessionId = sessionRows[0].id
 
       // ── Step 2: Copy class sections with teacher assignments ───────
       // Get source class sections
@@ -113,13 +114,14 @@ export async function POST(
         const teacherId = copy_teacher_assignments ? src.class_teacher_id : null
         const secondId = copy_teacher_assignments ? src.second_incharge_id : null
 
-        const [insertResult] = await connection.execute(
+        const [insertedRows] = await connection.execute<{ id: number }[]>(
           `INSERT INTO erp_class_sections
             (session_id, class_id, section_id, class_teacher_id, second_incharge_id, max_students, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+           RETURNING id`,
           [targetSessionId, src.class_id, src.section_id, teacherId, secondId, src.max_students]
         )
-        classSectionMap[src.id] = (insertResult as any).insertId
+        classSectionMap[src.id] = insertedRows[0].id
       }
 
       // ── Step 3: Copy subjects with teacher assignments ─────────────
@@ -253,7 +255,7 @@ export async function POST(
           `INSERT INTO erp_student_enrollments
             (student_id, class_section_id, partner_id, roll_number, student_type,
              previous_enrollment_id, enrollment_date, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
+           VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE, 'active', NOW(), NOW())`,
           [
             entry.student_id,
             resolvedCsId,
@@ -318,11 +320,11 @@ export async function POST(
 
       // ── Step 9: Set new session as current ─────────────────────────
       await connection.execute(
-        "UPDATE erp_sessions SET is_current = 0, updated_at = NOW() WHERE partner_id = ?",
+        "UPDATE erp_sessions SET is_current = FALSE, updated_at = NOW() WHERE partner_id = ?",
         [ctx.partnerUserId]
       )
       await connection.execute(
-        "UPDATE erp_sessions SET is_current = 1, updated_at = NOW() WHERE id = ?",
+        "UPDATE erp_sessions SET is_current = TRUE, updated_at = NOW() WHERE id = ?",
         [targetSessionId]
       )
 
@@ -340,9 +342,12 @@ export async function POST(
       data: result,
       message: "Session transition completed successfully",
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Session transition error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    const err = error as { code?: string }
+    // PG: 23505 = unique_violation. (mysql2's "ER_DUP_ENTRY" is no longer
+    // emitted; kept the check for any leftover MySQL surface.)
+    if (err?.code === "23505" || err?.code === "ER_DUP_ENTRY") {
       return NextResponse.json(
         { error: "A session with this name already exists" },
         { status: 409 }

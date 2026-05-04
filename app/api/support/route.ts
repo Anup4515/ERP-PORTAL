@@ -31,15 +31,15 @@ export async function GET(request: Request) {
       params.push(status)
     }
 
-    // UNIX_TIMESTAMP(...) * 1000 dodges the same TIMESTAMP/timezone drift that
+    // EXTRACT(EPOCH FROM ...) * 1000 dodges the same TIMESTAMP/timezone drift that
     // bit the recent-activity endpoint earlier — relative-time rendering on
     // the client is then trivially correct.
     const rows = await executeQuery<SupportQueryRow[]>(
       `SELECT
          q.id,
          q.category, q.subject, q.message, q.status, q.resolution_note,
-         UNIX_TIMESTAMP(q.created_at)  * 1000 AS ts_created,
-         UNIX_TIMESTAMP(q.resolved_at) * 1000 AS ts_resolved,
+         EXTRACT(EPOCH FROM q.created_at)  * 1000 AS ts_created,
+         EXTRACT(EPOCH FROM q.resolved_at) * 1000 AS ts_resolved,
          u.name AS resolver_name
        FROM erp_support_queries q
        LEFT JOIN users u ON u.id = q.resolved_by_user_id
@@ -66,16 +66,17 @@ export async function POST(request: Request) {
     if (!parsed.success) return parsed.response
     const { category, subject, message } = parsed.data
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_support_queries
          (partner_id, submitted_by_user_id, category, subject, message)
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?)
+       RETURNING id`,
       [ctx.partnerUserId, ctx.userId, category, subject.trim(), message.trim()]
     )
 
     return NextResponse.json(
       {
-        data: { id: (result as { insertId: number }).insertId },
+        data: { id: result[0].id },
         message: "Query submitted. Our team will get back to you.",
       },
       { status: 201 }

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       `SELECT gr.grade_label, gr.min_percentage, gr.max_percentage
        FROM erp_grading_ranges gr
        JOIN erp_grading_schemes gs ON gs.id = gr.grading_scheme_id
-       WHERE gs.partner_id = ? AND gs.is_default = 1
+       WHERE gs.partner_id = ? AND gs.is_default = TRUE
        ORDER BY gr.min_percentage DESC`,
       [ctx.partnerUserId]
     )
@@ -84,14 +84,14 @@ export async function POST(request: Request) {
           `INSERT INTO erp_marks (exam_id, subject_id, student_enrollment_id, maximum_marks,
            obtained_marks, is_absent, percentage, grade, entered_by, created_at, updated_at)
            VALUES ${placeholders}
-           ON DUPLICATE KEY UPDATE
-             obtained_marks = VALUES(obtained_marks),
-             is_absent = VALUES(is_absent),
-             maximum_marks = VALUES(maximum_marks),
-             percentage = VALUES(percentage),
-             grade = VALUES(grade),
-             entered_by = VALUES(entered_by),
-             updated_at = NOW()`,
+           ON CONFLICT (exam_id, subject_id, student_enrollment_id) DO UPDATE SET
+             obtained_marks = EXCLUDED.obtained_marks,
+             is_absent      = EXCLUDED.is_absent,
+             maximum_marks  = EXCLUDED.maximum_marks,
+             percentage     = EXCLUDED.percentage,
+             grade          = EXCLUDED.grade,
+             entered_by     = EXCLUDED.entered_by,
+             updated_at     = NOW()`,
           flatParams
         )
       }

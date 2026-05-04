@@ -64,7 +64,7 @@ export interface ResolvedSession {
  * Resolve which session to query data for.
  *
  * - If `?session_id=X` is in the URL, verifies it belongs to the partner and returns it.
- * - If absent, defaults to the partner's current session (`is_current = 1`).
+ * - If absent, defaults to the partner's current session (`is_current = TRUE`).
  *
  * Returns a ResolvedSession on success, or a NextResponse error.
  */
@@ -88,7 +88,7 @@ export async function resolveSessionId(
 
   // Default: current session
   const rows = await executeQuery<{ id: number }[]>(
-    "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
+    "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = TRUE LIMIT 1",
     [partnerUserId]
   )
   if (rows.length === 0) {

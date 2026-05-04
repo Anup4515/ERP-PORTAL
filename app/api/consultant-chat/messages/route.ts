@@ -58,8 +58,8 @@ export async function GET(request: Request) {
 
     const messages = await executeQuery<MessageRow[]>(
       `SELECT c.id, c.sender_id, c.receiver_id, c.title, c.description, c.path,
-              UNIX_TIMESTAMP(c.read_at) AS read_at,
-              UNIX_TIMESTAMP(c.created_at) AS created_at
+              EXTRACT(EPOCH FROM c.read_at) AS read_at,
+              EXTRACT(EPOCH FROM c.created_at) AS created_at
        FROM chats c
        WHERE ((c.sender_id = ? AND c.receiver_id = ?)
            OR (c.sender_id = ? AND c.receiver_id = ?))${extraWhere}
@@ -69,12 +69,12 @@ export async function GET(request: Request) {
     )
 
     // Mark inbound messages from this consultant as read.
-    // FROM_UNIXTIME(?) round-trips cleanly with UNIX_TIMESTAMP() regardless
+    // to_timestamp(?) round-trips cleanly with UNIX_TIMESTAMP() regardless
     // of the server's session_time_zone (NOW() does not — it depends on it).
     const nowEpoch = Math.floor(Date.now() / 1000)
     await executeQuery(
       `UPDATE chats
-         SET read_at = FROM_UNIXTIME(?)
+         SET read_at = to_timestamp(?)
        WHERE sender_id = ? AND receiver_id = ? AND read_at IS NULL`,
       [nowEpoch, consultantId, ctx.userId]
     )
@@ -157,16 +157,17 @@ export async function POST(request: Request) {
     // actual UTC moment we computed in JS — independent of the MariaDB
     // session's time_zone setting.
     const sentEpoch = Math.floor(Date.now() / 1000)
-    const insert = await executeQuery<{ insertId: number }>(
+    const insert = await executeQuery<{ id: number }[]>(
       `INSERT INTO chats (sender_id, receiver_id, title, description, path, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, FROM_UNIXTIME(?), FROM_UNIXTIME(?))`,
+       VALUES (?, ?, ?, ?, ?, to_timestamp(?), to_timestamp(?))
+       RETURNING id`,
       [ctx.userId, consultantId, title, body || null, storedRelPath, sentEpoch, sentEpoch]
     )
 
     return NextResponse.json(
       {
         data: {
-          id: insert.insertId,
+          id: insert[0].id,
           sender_id: ctx.userId,
           receiver_id: consultantId,
           title,

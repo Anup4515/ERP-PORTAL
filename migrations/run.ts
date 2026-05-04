@@ -1,19 +1,19 @@
 /**
- * Node.js Migration Runner for WiserWits Partners Portal
+ * Node.js Migration Runner for WiserWits Partners Portal (Postgres edition).
  *
- * Uses the same mysql2 driver as the app — no external CLI dependency.
+ * Uses the same `pg` driver as the app — no external CLI dependency.
  *
  * Usage:
- *   npx tsx migrations/run.ts up        # Apply pending migrations
- *   npx tsx migrations/run.ts status    # Show migration status
- *   npx tsx migrations/run.ts create <name>  # Scaffold a new migration file
+ *   npx tsx migrations/run.ts up                # Apply pending migrations
+ *   npx tsx migrations/run.ts status            # Show migration status
+ *   npx tsx migrations/run.ts create <name>     # Scaffold a new migration file
  *
  * Reads DB config from .env.local (same as the app).
  */
 
 import fs from "fs";
 import path from "path";
-import mysql from "mysql2/promise";
+import { Client } from "pg";
 
 // ── Load .env.local ──────────────────────────────────────────────────
 const envPath = path.resolve(__dirname, "..", ".env.local");
@@ -32,30 +32,22 @@ if (fs.existsSync(envPath)) {
 const MIGRATIONS_DIR = __dirname;
 
 // ── Helpers ──────────────────────────────────────────────────────────
-async function getConnection() {
-  if (process.env.DATABASE_URL) {
-    return mysql.createConnection({
-      uri: process.env.DATABASE_URL,
-      charset: "utf8mb4",
-      multipleStatements: true,
-    });
-  }
-  return mysql.createConnection({
-    host: process.env.DB_HOST || "127.0.0.1",
-    port: Number(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "dev_db",
-    charset: "utf8mb4",
-    multipleStatements: true, // migrations can contain multiple statements
+async function getClient(): Promise<Client> {
+  const client = new Client({
+    connectionString:
+      process.env.DATABASE_URL ||
+      `postgres://${process.env.DB_USER || "postgres"}:${process.env.DB_PASSWORD || ""}@${process.env.DB_HOST || "127.0.0.1"}:${process.env.DB_PORT || "5432"}/${process.env.DB_NAME || "dev_db"}`,
   });
+  await client.connect();
+  return client;
 }
 
 function describeConnection(): string {
-  if (process.env.DATABASE_URL) {
+  const url = process.env.DATABASE_URL;
+  if (url) {
     try {
-      const url = new URL(process.env.DATABASE_URL);
-      return `${url.pathname.slice(1)} @ ${url.hostname}:${url.port || 3306}`;
+      const u = new URL(url);
+      return `${u.pathname.slice(1)} @ ${u.hostname}:${u.port || 5432}`;
     } catch {
       return "DATABASE_URL";
     }
@@ -74,31 +66,33 @@ function getMigrationFiles(): { version: string; name: string; file: string }[] 
     });
 }
 
-async function ensureMigrationsTable(conn: mysql.Connection) {
-  await conn.execute(`
+async function ensureMigrationsTable(client: Client) {
+  // Postgres-flavoured. Single ENGINE=InnoDB-style trailer dropped; collation
+  // is handled at the database level.
+  await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
-      id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-      version VARCHAR(20) NOT NULL,
-      name VARCHAR(255) NOT NULL,
-      applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      UNIQUE KEY uq_version (version)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      id          SERIAL PRIMARY KEY,
+      version     VARCHAR(20) NOT NULL UNIQUE,
+      name        VARCHAR(255) NOT NULL,
+      applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `);
 }
 
-async function getAppliedVersions(conn: mysql.Connection): Promise<Set<string>> {
-  const [rows] = await conn.execute("SELECT version FROM schema_migrations ORDER BY version");
-  return new Set((rows as any[]).map((r) => r.version));
+async function getAppliedVersions(client: Client): Promise<Set<string>> {
+  const result = await client.query<{ version: string }>(
+    "SELECT version FROM schema_migrations ORDER BY version"
+  );
+  return new Set(result.rows.map((r) => r.version));
 }
 
 // ── Commands ─────────────────────────────────────────────────────────
 
 async function up() {
-  const conn = await getConnection();
+  const client = await getClient();
   try {
-    await ensureMigrationsTable(conn);
-    const applied = await getAppliedVersions(conn);
+    await ensureMigrationsTable(client);
+    const applied = await getAppliedVersions(client);
     const files = getMigrationFiles();
     let count = 0;
 
@@ -111,23 +105,30 @@ async function up() {
       process.stdout.write(`  ${file} ... `);
 
       try {
-        await conn.query(sql);
-        // If the migration doesn't self-register, register it
-        const [check] = await conn.execute(
-          "SELECT 1 FROM schema_migrations WHERE version = ?",
+        // Run each migration inside its own transaction so a failure leaves
+        // the database untouched. pg's `client.query(text)` accepts
+        // multi-statement strings natively when not parameterised.
+        await client.query("BEGIN");
+        await client.query(sql);
+
+        const check = await client.query(
+          "SELECT 1 FROM schema_migrations WHERE version = $1",
           [version]
         );
-        if ((check as any[]).length === 0) {
-          await conn.execute(
-            "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+        if (check.rowCount === 0) {
+          await client.query(
+            "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)",
             [version, name]
           );
         }
+        await client.query("COMMIT");
         console.log("done");
         count++;
-      } catch (err: any) {
+      } catch (err: unknown) {
+        await client.query("ROLLBACK").catch(() => {});
+        const msg = err instanceof Error ? err.message : String(err);
         console.log("FAILED");
-        console.error(`\n  Error: ${err.message}\n`);
+        console.error(`\n  Error: ${msg}\n`);
         console.error("  Fix the issue and re-run.\n");
         process.exit(1);
       }
@@ -139,15 +140,15 @@ async function up() {
       console.log(`\n  Applied ${count} migration(s).\n`);
     }
   } finally {
-    await conn.end();
+    await client.end();
   }
 }
 
 async function status() {
-  const conn = await getConnection();
+  const client = await getClient();
   try {
-    await ensureMigrationsTable(conn);
-    const applied = await getAppliedVersions(conn);
+    await ensureMigrationsTable(client);
+    const applied = await getAppliedVersions(client);
     const files = getMigrationFiles();
 
     console.log(`\n  Migration status for ${describeConnection()}\n`);
@@ -155,12 +156,12 @@ async function status() {
     console.log(`  ${"-------".padEnd(10)} ${"----".padEnd(40)} ------`);
 
     for (const { version, name } of files) {
-      const status = applied.has(version) ? "applied" : "PENDING";
-      console.log(`  ${version.padEnd(10)} ${name.padEnd(40)} ${status}`);
+      const s = applied.has(version) ? "applied" : "PENDING";
+      console.log(`  ${version.padEnd(10)} ${name.padEnd(40)} ${s}`);
     }
     console.log();
   } finally {
-    await conn.end();
+    await client.end();
   }
 }
 
@@ -171,13 +172,11 @@ function create(migrationName: string) {
     process.exit(1);
   }
 
-  // Sanitize name
   const safeName = migrationName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
 
-  // Find next version number
   const files = getMigrationFiles();
   const lastVersion = files.length > 0 ? parseInt(files[files.length - 1].version, 10) : 0;
   const nextVersion = String(lastVersion + 1).padStart(3, "0");
@@ -191,11 +190,11 @@ function create(migrationName: string) {
 -- Created: ${new Date().toISOString().split("T")[0]}
 -- ============================================================================
 
--- Write your SQL here. Each statement must end with a semicolon.
--- The migration runner supports multiple statements per file.
+-- Write your Postgres SQL here. Each statement ends with a semicolon.
+-- The runner wraps the file in a transaction.
 
 -- Example:
--- ALTER TABLE students ADD COLUMN partner_id BIGINT UNSIGNED AFTER id;
+-- ALTER TABLE students ADD COLUMN partner_id BIGINT;
 -- CREATE INDEX idx_students_partner ON students (partner_id);
 
 -- ============================================================================
@@ -203,7 +202,7 @@ function create(migrationName: string) {
 -- ============================================================================
 INSERT INTO schema_migrations (version, name, applied_at)
 VALUES ('${nextVersion}', '${safeName}', NOW())
-ON DUPLICATE KEY UPDATE applied_at = NOW();
+ON CONFLICT (version) DO UPDATE SET applied_at = NOW();
 `;
 
   fs.writeFileSync(filePath, template);

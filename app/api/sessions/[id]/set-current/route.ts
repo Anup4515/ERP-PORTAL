@@ -23,13 +23,13 @@ export async function POST(
 
     // Unset all other sessions for this partner
     await executeQuery(
-      "UPDATE erp_sessions SET is_current = 0 WHERE partner_id = ?",
+      "UPDATE erp_sessions SET is_current = FALSE WHERE partner_id = ?",
       [ctx.partnerUserId]
     )
 
     // Set this session as current
     await executeQuery(
-      "UPDATE erp_sessions SET is_current = 1 WHERE id = ? AND partner_id = ?",
+      "UPDATE erp_sessions SET is_current = TRUE WHERE id = ? AND partner_id = ?",
       [id, ctx.partnerUserId]
     )
 

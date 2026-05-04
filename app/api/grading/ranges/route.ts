@@ -60,14 +60,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Grading scheme not found" }, { status: 404 })
     }
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_grading_ranges (grading_scheme_id, grade_label, min_percentage, max_percentage, gpa_value, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+       RETURNING id`,
       [grading_scheme_id, grade_label, min_percentage, max_percentage, gpa_value ?? null, sort_order ?? 0]
     )
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Grading range created successfully" },
+      { data: { id: result[0].id }, message: "Grading range created successfully" },
       { status: 201 }
     )
   } catch (error) {

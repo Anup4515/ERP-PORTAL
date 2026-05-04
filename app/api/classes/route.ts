@@ -96,9 +96,10 @@ export async function POST(request: Request) {
     }
 
     // Insert the class
-    const classResult = await executeQuery<{ insertId: number }>(
+    const classResult = await executeQuery<{ id: number }[]>(
       `INSERT INTO classes (partner_id, name, code, grade_level, display_order, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, ?, 'active', NOW(), NOW())
+       RETURNING id`,
       [
         ctx.partnerUserId,
         name.trim(),
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
       ]
     )
 
-    const classId = classResult.insertId
+    const classId = classResult[0].id
 
     // If sections array is provided, create sections and link via erp_class_sections
     const createdSections: { id: number; name: string }[] = []
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
     if (Array.isArray(sections) && sections.length > 0) {
       // Get current session for linking
       const sessionRows = await executeQuery<{ id: number }[]>(
-        "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = 1 LIMIT 1",
+        "SELECT id FROM erp_sessions WHERE partner_id = ? AND is_current = TRUE LIMIT 1",
         [ctx.partnerUserId]
       )
 
@@ -127,13 +128,14 @@ export async function POST(request: Request) {
           continue
         }
 
-        const sectionResult = await executeQuery<{ insertId: number }>(
+        const sectionResult = await executeQuery<{ id: number }[]>(
           `INSERT INTO sections (class_id, name, status, created_at, updated_at)
-           VALUES (?, ?, 'active', NOW(), NOW())`,
+           VALUES (?, ?, 'active', NOW(), NOW())
+           RETURNING id`,
           [classId, sectionName.trim()]
         )
 
-        const sectionId = sectionResult.insertId
+        const sectionId = sectionResult[0].id
         createdSections.push({ id: sectionId, name: sectionName.trim() })
 
         // Link to current session if one exists

@@ -205,17 +205,15 @@ export async function POST(request: Request) {
       const fileName = `${rollStr}${student.first_name}_${student.last_name}.pdf`
       pdfFiles.push({ name: fileName, data: new Uint8Array(buffer) })
 
-      // Store record
+      // Store record (see notes in the single-file pdf route — no UNIQUE
+      // constraint exists, so the previous ON DUPLICATE KEY UPDATE was dead
+      // code; we keep the plain INSERT to match production behaviour).
       await executeQuery(
         `INSERT INTO erp_report_cards
           (student_enrollment_id, type, reference_month, exam_id,
            attendance_percentage, overall_percentage, overall_grade, rank_in_class,
            generated_by, generated_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())
-         ON DUPLICATE KEY UPDATE
-           generated_by = VALUES(generated_by),
-           generated_at = NOW(),
-           updated_at = NOW()`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())`,
         [
           student.enrollment_id,
           type,

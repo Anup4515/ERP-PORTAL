@@ -58,8 +58,8 @@ export async function GET() {
       unread_count: number
     }[]>(
       `SELECT t.id, t.user_a_id, t.user_b_id,
-              DATE_FORMAT(CONVERT_TZ(t.last_message_at, @@session.time_zone, '+00:00'),
-                          '%Y-%m-%dT%H:%i:%s.000Z') AS last_message_at,
+              to_char(t.last_message_at AT TIME ZONE 'UTC',
+                      'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last_message_at,
               t.last_message_preview, t.last_sender_id,
               (SELECT COUNT(*) FROM erp_chat_messages m
                 WHERE m.thread_id = t.id

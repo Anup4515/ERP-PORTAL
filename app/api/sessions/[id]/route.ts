@@ -124,7 +124,7 @@ export async function PUT(
     return NextResponse.json({ message: "Session updated successfully" })
   } catch (error: any) {
     console.error("Session PUT error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "A session with this name already exists" },
         { status: 409 }

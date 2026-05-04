@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     const workingDaysRows = await executeQuery<{ count: number }[]>(
       `SELECT COUNT(*) as count FROM erp_calendar_days cd
        JOIN erp_class_sections ecs ON ecs.session_id = cd.session_id
-       WHERE ecs.id = ? AND cd.date BETWEEN ? AND ? AND cd.is_holiday = 0`,
+       WHERE ecs.id = ? AND cd.date BETWEEN ? AND ? AND cd.is_holiday = FALSE`,
       [classSectionId, startDate, endDate]
     )
     const totalWorkingDays = workingDaysRows[0]?.count || 0

@@ -10,8 +10,8 @@ export async function GET() {
 
     const sessions = await executeQuery(
       `SELECT id, partner_id, name,
-              DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
-              DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
+              to_char(start_date, 'YYYY-MM-DD') AS start_date,
+              to_char(end_date, 'YYYY-MM-DD') AS end_date,
               is_current, created_at, updated_at
          FROM erp_sessions
         WHERE partner_id = ?
@@ -66,14 +66,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // First session auto-activates (is_current = 1).
-    const result = await executeQuery<{ insertId: number }>(
+    // First session auto-activates (is_current = TRUE).
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_sessions (partner_id, name, start_date, end_date, is_current, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, TRUE, NOW(), NOW())
+       RETURNING id`,
       [ctx.partnerUserId, name, start_date, end_date]
     )
 
-    const newSessionId = (result as any).insertId
+    const newSessionId = result[0].id
 
     // Auto-generate calendar for the new session (Sundays pre-marked as holidays)
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
     )
   } catch (error: any) {
     console.error("Sessions POST error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "A session with this name already exists" },
         { status: 409 }

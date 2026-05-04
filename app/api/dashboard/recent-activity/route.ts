@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       }[]>(
         `SELECT s.id, s.first_name, s.last_name,
                 c.name AS class_name, sec.name AS section_name,
-                UNIX_TIMESTAMP(s.created_at) * 1000 AS ts
+                EXTRACT(EPOCH FROM s.created_at) * 1000 AS ts
            FROM students s
            JOIN erp_student_enrollments se ON se.student_id = s.id
            JOIN erp_class_sections ecs    ON ecs.id        = se.class_section_id
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
         `SELECT p.id, p.amount,
                 stu.first_name, stu.last_name,
                 fs.name AS fee_name,
-                UNIX_TIMESTAMP(p.created_at) * 1000 AS ts
+                EXTRACT(EPOCH FROM p.created_at) * 1000 AS ts
            FROM erp_fee_payments p
            JOIN erp_fee_dues d              ON d.id   = p.due_id
            JOIN erp_fee_structures fs       ON fs.id  = d.structure_id
@@ -106,7 +106,7 @@ export async function GET(request: Request) {
         ts: string | number
       }[]>(
         `SELECT id, name, fee_type, amount, recurrence,
-                UNIX_TIMESTAMP(created_at) * 1000 AS ts
+                EXTRACT(EPOCH FROM created_at) * 1000 AS ts
            FROM erp_fee_structures
           WHERE partner_id = ? AND session_id = ?
           ORDER BY created_at DESC
@@ -124,7 +124,7 @@ export async function GET(request: Request) {
       }[]>(
         `SELECT e.id, e.name,
                 c.name AS class_name, sec.name AS section_name,
-                UNIX_TIMESTAMP(e.created_at) * 1000 AS ts
+                EXTRACT(EPOCH FROM e.created_at) * 1000 AS ts
            FROM erp_exams e
            JOIN erp_class_sections ecs ON ecs.id = e.class_section_id
            JOIN classes  c   ON c.id   = ecs.class_id
@@ -143,7 +143,7 @@ export async function GET(request: Request) {
         ts: string | number
       }[]>(
         `SELECT t.id, u.name,
-                UNIX_TIMESTAMP(t.created_at) * 1000 AS ts
+                EXTRACT(EPOCH FROM t.created_at) * 1000 AS ts
            FROM teachers t
            JOIN users u ON u.id = t.user_id
           WHERE t.partner_id = ?

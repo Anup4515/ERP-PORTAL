@@ -100,11 +100,12 @@ export async function POST(request: Request) {
     const persistEndMonth = recurrence === "monthly" ? toFirstOfMonth(end_month as string) : null
     const persistDay = recurrence === "monthly" ? (due_day_of_month ?? null) : null
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_fee_structures
          (partner_id, session_id, class_section_id, name, fee_type, amount,
           recurrence, due_date, start_month, end_month, due_day_of_month)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`,
       [
         ctx.partnerUserId,
         sess.sessionId,
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
     )
 
     return NextResponse.json(
-      { data: { id: (result as { insertId: number }).insertId }, message: "Fee structure created" },
+      { data: { id: result[0].id }, message: "Fee structure created" },
       { status: 201 }
     )
   } catch (error) {

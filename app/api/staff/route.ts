@@ -59,14 +59,15 @@ export async function POST(request: Request) {
       }
     }
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO partner_staff (partner_id, name, designation, department, phone, email, qualification, experience, address, date_of_joining)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`,
       [ctx.partnerUserId, name, designation, department || null, phone || null, email || null, qualification || null, experience || null, address || null, date_of_joining || null]
     )
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Staff added successfully" },
+      { data: { id: result[0].id }, message: "Staff added successfully" },
       { status: 201 }
     )
   } catch (error) {

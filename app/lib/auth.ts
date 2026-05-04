@@ -2,9 +2,8 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { executeQuery } from "@/app/lib/db";
-import { RowDataPacket } from "mysql2/promise";
 
-interface UserRow extends RowDataPacket {
+interface UserRow {
   id: number;
   name: string;
   email: string;
@@ -12,11 +11,11 @@ interface UserRow extends RowDataPacket {
   role_id: number;
 }
 
-interface PartnerRow extends RowDataPacket {
+interface PartnerRow {
   id: number;
 }
 
-interface TeacherRow extends RowDataPacket {
+interface TeacherRow {
   partner_id: number;
 }
 
@@ -75,10 +74,12 @@ async function resolveSchoolId(
       return rows[0].partner_id;
     }
 
-    // Fallback: JSON_CONTAINS on partner_teachers
+    // Fallback: legacy partner_teachers JSON-array bridge.
+    // PG: jsonb @> ? checks whether the right-hand value is contained in the
+    // left-hand jsonb. Pass userId as a JSON number literal.
     const fallbackRows = await executeQuery<PartnerRow[]>(
-      "SELECT partner_id AS id FROM partner_teachers WHERE JSON_CONTAINS(teacher_ids, CAST(? AS JSON)) LIMIT 1",
-      [userId]
+      "SELECT partner_id AS id FROM partner_teachers WHERE teacher_ids @> ?::jsonb LIMIT 1",
+      [JSON.stringify(userId)]
     );
     return fallbackRows.length > 0 ? fallbackRows[0].id : null;
   }

@@ -33,15 +33,15 @@ export async function GET(request: Request) {
     // Aggregate present/total per day across the session for the last `days` days.
     const rows = await executeQuery<TrendRow[]>(
       `SELECT
-         DATE_FORMAT(ar.date, '%Y-%m-%d') AS date,
+         to_char(ar.date, 'YYYY-MM-DD') AS date,
          COUNT(*) AS total,
          SUM(CASE WHEN ar.status = 'present' THEN 1 ELSE 0 END) AS present
        FROM erp_attendance_records ar
        JOIN erp_student_enrollments se ON ar.student_enrollment_id = se.id
        JOIN erp_class_sections cs ON se.class_section_id = cs.id
        WHERE cs.session_id = ?
-         AND ar.date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-         AND ar.date <= CURDATE()
+         AND ar.date >= (CURRENT_DATE - INTERVAL '1 day' * ?::int)
+         AND ar.date <= CURRENT_DATE
        GROUP BY ar.date
        ORDER BY ar.date ASC`,
       [sess.sessionId, days - 1]
@@ -50,11 +50,11 @@ export async function GET(request: Request) {
     // Holiday lookup for the same window so the UI can show "Holiday · <reason>"
     // instead of a blank day.
     const holidayRows = await executeQuery<HolidayRow[]>(
-      `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date, is_holiday, holiday_reason
+      `SELECT to_char(date, 'YYYY-MM-DD') AS date, is_holiday, holiday_reason
          FROM erp_calendar_days
         WHERE session_id = ?
-          AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-          AND date <= CURDATE()`,
+          AND date >= (CURRENT_DATE - INTERVAL '1 day' * ?::int)
+          AND date <= CURRENT_DATE`,
       [sess.sessionId, days - 1]
     );
 

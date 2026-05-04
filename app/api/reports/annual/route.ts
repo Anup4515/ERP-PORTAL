@@ -130,7 +130,7 @@ export async function GET(request: Request) {
       `SELECT gr.grade_label, gr.min_percentage, gr.max_percentage
        FROM erp_grading_ranges gr
        JOIN erp_grading_schemes gs ON gs.id = gr.grading_scheme_id
-       WHERE gs.partner_id = ? AND gs.is_default = 1
+       WHERE gs.partner_id = ? AND gs.is_default = TRUE
        ORDER BY gr.sort_order`,
       [ctx.partnerUserId]
     )
@@ -189,7 +189,7 @@ export async function GET(request: Request) {
       // Rank
       const rankRows = await executeQuery<{ enrollment_id: number; total: number }[]>(
         `SELECT m.student_enrollment_id as enrollment_id,
-                SUM(CASE WHEN m.is_absent = 0 AND m.obtained_marks IS NOT NULL THEN m.obtained_marks ELSE 0 END) as total
+                SUM(CASE WHEN m.is_absent = FALSE AND m.obtained_marks IS NOT NULL THEN m.obtained_marks ELSE 0 END) as total
          FROM erp_marks m
          JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
          JOIN students s2 ON s2.id = se.student_id
@@ -229,7 +229,7 @@ export async function GET(request: Request) {
 
     const holidayRows = await executeQuery<{ cnt: number }[]>(
       `SELECT COUNT(*) as cnt FROM erp_calendar_days
-       WHERE session_id = ? AND is_holiday = 1`,
+       WHERE session_id = ? AND is_holiday = TRUE`,
       [student.session_id]
     )
     const holidayCount = holidayRows[0]?.cnt || 0
@@ -269,7 +269,7 @@ export async function GET(request: Request) {
        JOIN erp_holistic_parameters hp ON hp.id = hsp.parameter_id
        WHERE hr.student_enrollment_id = ?
          AND hp.partner_id = ?
-         AND hr.month BETWEEN DATE_FORMAT(?, '%Y-%m-01') AND DATE_FORMAT(?, '%Y-%m-01')
+         AND hr.month BETWEEN date_trunc('month', ?::date)::date AND date_trunc('month', ?::date)::date
        GROUP BY hp.name, hp.sort_order, hr.month
        ORDER BY hp.sort_order, hp.name, hr.month`,
       [studentId, ctx.partnerUserId, student.session_start, student.session_end]

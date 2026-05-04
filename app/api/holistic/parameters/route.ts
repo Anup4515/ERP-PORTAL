@@ -134,12 +134,13 @@ export async function POST(request: Request) {
 
           // Insert parameters and sub-parameters
           for (const [paramName, paramData] of paramMap) {
-            const [paramResult] = await connection.execute(
+            const [paramRows] = await connection.execute<{ id: number }[]>(
               `INSERT INTO erp_holistic_parameters (partner_id, name, stage, sort_order, created_at, updated_at)
-               VALUES (?, ?, ?, ?, NOW(), NOW())`,
+               VALUES (?, ?, ?, ?, NOW(), NOW())
+               RETURNING id`,
               [ctx.partnerUserId, paramName, stg, paramData.sort_order]
             )
-            const paramId = (paramResult as any).insertId
+            const paramId = paramRows[0].id
 
             for (const sub of paramData.subs) {
               await connection.execute(
@@ -165,14 +166,15 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_holistic_parameters (partner_id, name, stage, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, NOW(), NOW())
+       RETURNING id`,
       [ctx.partnerUserId, name, stage || null, sort_order ?? 0]
     )
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Parameter created successfully" },
+      { data: { id: result[0].id }, message: "Parameter created successfully" },
       { status: 201 }
     )
   } catch (error) {

@@ -86,11 +86,11 @@ export async function POST(request: Request) {
           `INSERT INTO erp_holistic_ratings
              (student_enrollment_id, sub_parameter_id, month, rating_value, rating_grade, comments, rated_by, created_at, updated_at)
            VALUES ${placeholders}
-           ON DUPLICATE KEY UPDATE
-             rating_value = VALUES(rating_value),
-             comments = VALUES(comments),
-             rated_by = VALUES(rated_by),
-             updated_at = NOW()`,
+           ON CONFLICT (student_enrollment_id, sub_parameter_id, month) DO UPDATE SET
+             rating_value = EXCLUDED.rating_value,
+             comments     = EXCLUDED.comments,
+             rated_by     = EXCLUDED.rated_by,
+             updated_at   = NOW()`,
           flatParams
         )
       }

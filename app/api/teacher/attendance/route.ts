@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 
     const holidays = await executeQuery(
       `SELECT cd.date FROM erp_calendar_days cd
-       WHERE cd.session_id = ? AND cd.date BETWEEN ? AND ? AND cd.is_holiday = 1
+       WHERE cd.session_id = ? AND cd.date BETWEEN ? AND ? AND cd.is_holiday = TRUE
        ORDER BY cd.date`,
       [sess.sessionId, startDate, endDate]
     )

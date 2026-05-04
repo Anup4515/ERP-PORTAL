@@ -61,10 +61,10 @@ export async function POST(request: Request) {
         await connection.execute(
           `INSERT INTO erp_attendance_records (student_enrollment_id, date, status, remarks, marked_by, created_at, updated_at)
            VALUES ${placeholders}
-           ON DUPLICATE KEY UPDATE
-             status = VALUES(status),
-             remarks = VALUES(remarks),
-             marked_by = VALUES(marked_by),
+           ON CONFLICT (student_enrollment_id, date) DO UPDATE SET
+             status     = EXCLUDED.status,
+             remarks    = EXCLUDED.remarks,
+             marked_by  = EXCLUDED.marked_by,
              updated_at = NOW()`,
           flatParams
         )

@@ -15,7 +15,7 @@ export async function GET(
     const sess = await resolveSessionId(request, ctx.partnerUserId)
     if (isSessionError(sess)) return sess
 
-    const students = await executeQuery(
+    const students = await executeQuery<Record<string, unknown>[]>(
       `SELECT st.*, e.id as enrollment_id, e.class_section_id, e.roll_number, e.student_type, e.status as enrollment_status,
               c.name as class_name, sec.name as section_name, es.name as session_name
        FROM students st
@@ -120,7 +120,7 @@ export async function PUT(
     return NextResponse.json({ message: "Student updated successfully" })
   } catch (error: any) {
     console.error("Student PUT error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "A student with this email already exists" },
         { status: 409 }

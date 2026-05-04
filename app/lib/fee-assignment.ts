@@ -1,4 +1,4 @@
-import type { PoolConnection, RowDataPacket } from "mysql2/promise"
+import type { PgPoolConnection } from "@/app/lib/db"
 
 // ─── Date helpers (string + integer arithmetic, no TZ shenanigans) ─────────
 
@@ -116,7 +116,7 @@ export function slotsForEnrollment(
 
 // ─── Auto-assign on new enrollment ──────────────────────────────────────────
 
-interface FeeStructureRow extends RowDataPacket, FeeStructureForAssign {
+interface FeeStructureRow extends FeeStructureForAssign {
   class_section_id: number | null
 }
 
@@ -137,16 +137,16 @@ export interface AutoAssignResult {
  * class_section) and INSERT IGNORE the appropriate dues. Idempotent — safe to
  * call again if rerun.
  *
- * Runs against an existing PoolConnection (from executeTransaction) so the
+ * Runs against an existing PgPoolConnection (from executeTransaction) so the
  * write is atomic with the enrollment insert that triggered it.
  */
 export async function autoAssignDuesForNewEnrollment(
-  connection: PoolConnection,
+  connection: PgPoolConnection,
   partnerUserId: number,
   sessionId: number,
   enrollment: EnrollmentRef
 ): Promise<AutoAssignResult> {
-  const [structureRows] = await connection.execute(
+  const [structureRows] = await connection.execute<FeeStructureRow[]>(
     `SELECT id, class_section_id, amount, recurrence,
             due_date, start_month, end_month, due_day_of_month
        FROM erp_fee_structures
@@ -155,7 +155,7 @@ export async function autoAssignDuesForNewEnrollment(
         AND (class_section_id IS NULL OR class_section_id = ?)`,
     [partnerUserId, sessionId, enrollment.class_section_id]
   )
-  const structures = structureRows as FeeStructureRow[]
+  const structures = structureRows
   if (structures.length === 0) {
     return { structuresMatched: 0, duesInserted: 0 }
   }
@@ -185,14 +185,19 @@ export async function autoAssignDuesForNewEnrollment(
     return { structuresMatched: structures.length, duesInserted: 0 }
   }
 
-  const [result] = await connection.execute(
-    `INSERT IGNORE INTO erp_fee_dues
+  // Postgres equivalent of MySQL's INSERT IGNORE: ON CONFLICT … DO NOTHING.
+  // Adding RETURNING id lets us count newly-inserted rows (skipped duplicates
+  // are excluded), giving us the same semantic as mysql2's affectedRows.
+  const [insertedRows] = await connection.execute<{ id: number }[]>(
+    `INSERT INTO erp_fee_dues
        (partner_id, structure_id, period_label, student_enrollment_id, amount_due, due_date)
-     VALUES ${placeholders.join(", ")}`,
+     VALUES ${placeholders.join(", ")}
+     ON CONFLICT (structure_id, student_enrollment_id, period_label) DO NOTHING
+     RETURNING id`,
     values
   )
   return {
     structuresMatched: structures.length,
-    duesInserted: (result as { affectedRows: number }).affectedRows,
+    duesInserted: insertedRows.length,
   }
 }

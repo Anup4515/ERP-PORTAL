@@ -86,22 +86,17 @@ export async function POST(request: Request) {
     }
     const buffer = await renderToBuffer(pdfElement)
 
-    // Store record in erp_report_cards
+    // Store record in erp_report_cards. The original MySQL had an
+    // ON DUPLICATE KEY UPDATE clause but the table has no UNIQUE constraint
+    // matching the (enrollment, type, ref) tuple, so the clause was dead code
+    // in practice. Plain INSERT preserves the actual production behaviour.
     const enrollmentId = Number(student_id)
     await executeQuery(
       `INSERT INTO erp_report_cards
         (student_enrollment_id, type, reference_month, exam_id,
          attendance_percentage, overall_percentage, overall_grade, rank_in_class,
          generated_by, generated_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())
-       ON DUPLICATE KEY UPDATE
-         attendance_percentage = VALUES(attendance_percentage),
-         overall_percentage = VALUES(overall_percentage),
-         overall_grade = VALUES(overall_grade),
-         rank_in_class = VALUES(rank_in_class),
-         generated_by = VALUES(generated_by),
-         generated_at = NOW(),
-         updated_at = NOW()`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())`,
       [
         enrollmentId,
         type,

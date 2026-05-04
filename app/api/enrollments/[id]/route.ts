@@ -47,7 +47,7 @@ export async function PUT(
     return NextResponse.json({ message: "Enrollment updated successfully" })
   } catch (error: any) {
     console.error("Enrollment PUT error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "Roll number is already taken in this class section" },
         { status: 409 }

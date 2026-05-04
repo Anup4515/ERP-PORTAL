@@ -41,7 +41,7 @@ export async function PUT(
     return NextResponse.json({ message: "Subject updated successfully" })
   } catch (error: any) {
     console.error("Subjects PUT error:", error)
-    if (error?.code === "ER_DUP_ENTRY") {
+    if (error?.code === "23505") {
       return NextResponse.json(
         { error: "A subject with this name already exists in this class section" },
         { status: 409 }

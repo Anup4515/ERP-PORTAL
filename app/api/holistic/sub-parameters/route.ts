@@ -62,14 +62,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Parameter not found" }, { status: 404 })
     }
 
-    const result = await executeQuery<{ insertId: number }>(
+    const result = await executeQuery<{ id: number }[]>(
       `INSERT INTO erp_holistic_sub_parameters (parameter_id, name, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, NOW(), NOW())
+       RETURNING id`,
       [parameter_id, name, sort_order ?? 0]
     )
 
     return NextResponse.json(
-      { data: { id: (result as any).insertId }, message: "Sub-parameter created successfully" },
+      { data: { id: result[0].id }, message: "Sub-parameter created successfully" },
       { status: 201 }
     )
   } catch (error) {

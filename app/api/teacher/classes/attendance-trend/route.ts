@@ -71,14 +71,14 @@ export async function GET(request: Request) {
     // 2) Daily aggregation for those classes over the window.
     const rows = await executeQuery<DailyRow[]>(
       `SELECT se.class_section_id,
-              DATE_FORMAT(ar.date, '%Y-%m-%d') AS date,
+              to_char(ar.date, 'YYYY-MM-DD') AS date,
               COUNT(*) AS total,
               SUM(CASE WHEN ar.status = 'present' THEN 1 ELSE 0 END) AS present
          FROM erp_attendance_records ar
          JOIN erp_student_enrollments se ON se.id = ar.student_enrollment_id
         WHERE se.class_section_id IN (${placeholders})
-          AND ar.date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-          AND ar.date <= CURDATE()
+          AND ar.date >= (CURRENT_DATE - INTERVAL '1 day' * ?::int)
+          AND ar.date <= CURRENT_DATE
         GROUP BY se.class_section_id, ar.date
         ORDER BY ar.date ASC`,
       [...csIds, days - 1]
@@ -89,11 +89,11 @@ export async function GET(request: Request) {
     // Holiday lookup (session-scoped) so each per-class row can show
     // "Holiday · <reason>" instead of a blank dash.
     const holidayRows = await executeQuery<HolidayRow[]>(
-      `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date, is_holiday, holiday_reason
+      `SELECT to_char(date, 'YYYY-MM-DD') AS date, is_holiday, holiday_reason
          FROM erp_calendar_days
         WHERE session_id = ?
-          AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-          AND date <= CURDATE()`,
+          AND date >= (CURRENT_DATE - INTERVAL '1 day' * ?::int)
+          AND date <= CURRENT_DATE`,
       [sess.sessionId, days - 1]
     );
     const holidayByDate = new Map<string, HolidayRow>();

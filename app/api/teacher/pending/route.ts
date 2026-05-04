@@ -59,7 +59,7 @@ export async function GET(request: Request) {
          JOIN sections sec ON sec.id = cs.section_id
          LEFT JOIN erp_student_enrollments se ON se.class_section_id = cs.id
          LEFT JOIN erp_attendance_records ar
-              ON ar.student_enrollment_id = se.id AND ar.date = CURDATE()
+              ON ar.student_enrollment_id = se.id AND ar.date = CURRENT_DATE
         WHERE cs.session_id = ?
           AND (cs.class_teacher_id = ? OR cs.second_incharge_id = ?)
         GROUP BY cs.id, c.name, sec.name
@@ -97,8 +97,8 @@ export async function GET(request: Request) {
          JOIN erp_subjects s ON s.class_section_id = cs.id AND s.teacher_id = ?
         WHERE cs.session_id = ?
           AND e.end_date IS NOT NULL
-          AND e.end_date < CURDATE()
-          AND e.end_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+          AND e.end_date < CURRENT_DATE
+          AND e.end_date >= (CURRENT_DATE - INTERVAL '60 days')
           AND e.status IN ('completed', 'in_progress')
         ORDER BY e.end_date DESC
         LIMIT 10`,

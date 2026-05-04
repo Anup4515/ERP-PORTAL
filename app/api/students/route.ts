@@ -145,13 +145,14 @@ export async function POST(request: Request) {
     }
 
     await executeTransaction(async (connection) => {
-      const [studentResult] = await connection.execute(
+      const [studentRows] = await connection.execute<{ id: number }[]>(
         `INSERT INTO students (
           created_by, first_name, last_name, middle_name, gender, date_of_birth,
           email, phone, alternate_phone, address, city, state, country, postal_code,
           father_name, mother_name, guardian_name, guardian_phone, guardian_email,
           profile_image, status, height, weight, blood_group, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        RETURNING id`,
         [
           ctx.userId || null, first_name, last_name, middle_name || null,
           gender || null, date_of_birth || null, email, phone || null, alternate_phone || null,
@@ -161,19 +162,20 @@ export async function POST(request: Request) {
           status || "active", height || null, weight || null, blood_group || null
         ]
       )
-      studentId = (studentResult as any).insertId
+      studentId = studentRows[0].id
 
-      const [enrollmentResult] = await connection.execute(
+      const [enrollmentRows] = await connection.execute<{ id: number }[]>(
         `INSERT INTO erp_student_enrollments (
           student_id, class_section_id, partner_id, roll_number, student_type, enrollment_date, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, CURDATE(), 'active', NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, CURRENT_DATE, 'active', NOW(), NOW())
+        RETURNING id`,
         [studentId, class_section_id, ctx.partnerUserId, roll_number || null, student_type || "regular"]
       )
-      const enrollmentId = (enrollmentResult as { insertId: number }).insertId
+      const enrollmentId = enrollmentRows[0].id
 
       // Auto-assign every fee structure in scope (whole-session + this
       // class_section's structures) to the new enrollment. enrollment_date is
-      // CURDATE() per the INSERT above; passing today's date here keeps the
+      // CURRENT_DATE per the INSERT above; passing today's date here keeps the
       // monthly window clamping in sync (only the YYYY-MM portion is read).
       const todayISO = new Date().toISOString().slice(0, 10)
       autoAssignResult = await autoAssignDuesForNewEnrollment(
@@ -190,10 +192,13 @@ export async function POST(request: Request) {
       if (shouldAutoSubscribe) {
         // expires_at: prefer contract end date; otherwise start + plan.duration_days;
         // otherwise leave the row out (logged below) — better than guessing.
+        // PG: NOW() + INTERVAL '1 day' * n is the equivalent of MySQL's
+        //     DATE_ADD(NOW(), INTERVAL n DAY). Multiplying a literal interval
+        //     by a bound int avoids implicit-cast quirks with `||`.
         const expiresAtSql = partner.contract_ends_at
           ? "?"
           : planDurationDays != null
-            ? "DATE_ADD(NOW(), INTERVAL ? DAY)"
+            ? "NOW() + INTERVAL '1 day' * ?::int"
             : null
 
         if (expiresAtSql) {
@@ -203,9 +208,9 @@ export async function POST(request: Request) {
               student_id, plan_id, start_date, end_date, is_active,
               status, starts_at, expires_at, payer_type, payer_partner_id,
               created_at, updated_at
-            ) VALUES (?, ?, CURDATE(),
-              ${partner.contract_ends_at ? "?" : "DATE_ADD(CURDATE(), INTERVAL ? DAY)"},
-              1, 'active', NOW(), ${expiresAtSql}, 'partner', ?, NOW(), NOW())`,
+            ) VALUES (?, ?, CURRENT_DATE,
+              ${partner.contract_ends_at ? "?" : "(CURRENT_DATE + INTERVAL '1 day' * ?::int)::date"},
+              TRUE, 'active', NOW(), ${expiresAtSql}, 'partner', ?, NOW(), NOW())`,
             [
               studentId,
               partner.default_plan_id,
@@ -247,7 +252,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     console.error("Students POST error:", error)
     const err = error as { code?: string; sqlMessage?: string; message?: string }
-    if (err?.code === "ER_DUP_ENTRY") {
+    if (err?.code === "23505") {
       const sqlMsg = err.sqlMessage || err.message || ""
 
       // Roll-number-in-section collision: look up the next free roll so the

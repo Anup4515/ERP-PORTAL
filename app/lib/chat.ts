@@ -52,11 +52,12 @@ export async function getOrCreateThread(
   )
   if (existing.length > 0) return existing[0].id
 
-  const result = await executeQuery<{ insertId: number }>(
+  const result = await executeQuery<{ id: number }[]>(
     `INSERT INTO erp_chat_threads
        (partner_id, user_a_id, user_b_id, created_at, updated_at)
-     VALUES (?, ?, ?, NOW(), NOW())`,
+     VALUES (?, ?, ?, NOW(), NOW())
+     RETURNING id`,
     [partnerUserId, userAId, userBId]
   )
-  return result.insertId
+  return result[0].id
 }

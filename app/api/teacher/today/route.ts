@@ -78,7 +78,7 @@ export async function GET(request: Request) {
               ON pc.partner_id = ?
              AND pc.period_number = ts.period_number
         WHERE ts.teacher_id = ?
-          AND ts.day_of_week = DATE_FORMAT(CURDATE(), '%W')
+          AND ts.day_of_week = to_char(CURRENT_DATE, 'FMDay')
           AND cs.session_id = ?
         ORDER BY ts.period_number ASC`,
       [ctx.partnerUserId, teacherId, sess.sessionId]
@@ -96,8 +96,8 @@ export async function GET(request: Request) {
          JOIN classes c   ON c.id = cs.class_id
          JOIN sections sec ON sec.id = cs.section_id
         WHERE cs.session_id = ?
-          AND CURDATE() BETWEEN COALESCE(e.start_date, CURDATE())
-                            AND COALESCE(e.end_date,   CURDATE())
+          AND CURRENT_DATE BETWEEN COALESCE(e.start_date, CURRENT_DATE)
+                            AND COALESCE(e.end_date,   CURRENT_DATE)
           AND (
             cs.class_teacher_id = ? OR
             cs.second_incharge_id = ? OR
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
     const holidayRows = await executeQuery<HolidayRow[]>(
       `SELECT is_holiday, holiday_reason
          FROM erp_calendar_days
-        WHERE session_id = ? AND date = CURDATE()
+        WHERE session_id = ? AND date = CURRENT_DATE
         LIMIT 1`,
       [sess.sessionId]
     );

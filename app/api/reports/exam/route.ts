@@ -112,7 +112,7 @@ export async function GET(request: Request) {
       `SELECT gr.grade_label
        FROM erp_grading_ranges gr
        JOIN erp_grading_schemes gs ON gs.id = gr.grading_scheme_id
-       WHERE gs.partner_id = ? AND gs.is_default = 1
+       WHERE gs.partner_id = ? AND gs.is_default = TRUE
          AND ? BETWEEN gr.min_percentage AND gr.max_percentage
        ORDER BY gr.sort_order LIMIT 1`,
       [ctx.partnerUserId, overallPercentage]
@@ -122,7 +122,7 @@ export async function GET(request: Request) {
     // Compute rank — total marks of all students in this exam, rank by descending
     const rankRows = await executeQuery<{ enrollment_id: number; total: number }[]>(
       `SELECT m.student_enrollment_id as enrollment_id,
-              SUM(CASE WHEN m.is_absent = 0 AND m.obtained_marks IS NOT NULL THEN m.obtained_marks ELSE 0 END) as total
+              SUM(CASE WHEN m.is_absent = FALSE AND m.obtained_marks IS NOT NULL THEN m.obtained_marks ELSE 0 END) as total
        FROM erp_marks m
        JOIN erp_student_enrollments se ON se.id = m.student_enrollment_id
        JOIN students s2 ON s2.id = se.student_id

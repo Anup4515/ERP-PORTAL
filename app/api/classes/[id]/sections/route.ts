@@ -90,13 +90,14 @@ export async function POST(
     }
 
     // Insert the section
-    const sectionResult = await executeQuery<{ insertId: number }>(
+    const sectionResult = await executeQuery<{ id: number }[]>(
       `INSERT INTO sections (class_id, name, room_no, status, created_at, updated_at)
-       VALUES (?, ?, ?, 'active', NOW(), NOW())`,
+       VALUES (?, ?, ?, 'active', NOW(), NOW())
+       RETURNING id`,
       [classId, name.trim(), room_no || null]
     )
 
-    const sectionId = sectionResult.insertId
+    const sectionId = sectionResult[0].id
 
     // Link to current session via erp_class_sections
     const sess = await resolveSessionId(request, ctx.partnerUserId)
@@ -107,13 +108,14 @@ export async function POST(
     {
       const currentSessionId = sess.sessionId
 
-      const linkResult = await executeQuery<{ insertId: number }>(
+      const linkResult = await executeQuery<{ id: number }[]>(
         `INSERT INTO erp_class_sections (session_id, class_id, section_id, created_at, updated_at)
-         VALUES (?, ?, ?, NOW(), NOW())`,
+         VALUES (?, ?, ?, NOW(), NOW())
+         RETURNING id`,
         [currentSessionId, classId, sectionId]
       )
 
-      classSectionId = linkResult.insertId
+      classSectionId = linkResult[0].id
     }
 
     return NextResponse.json(

@@ -21,21 +21,23 @@ export async function GET(request: Request) {
       params.push(classSectionId)
     }
 
-    // Auto-update statuses based on today's date before fetching
+    // Auto-update statuses based on today's date before fetching.
+    // exam_status is a Postgres ENUM; comparing it to the CASE result
+    // (which is text) requires an explicit ::text cast on the column.
     await executeQuery(
       `UPDATE erp_exams e
-       SET e.status = CASE
-         WHEN e.end_date IS NOT NULL AND CURRENT_DATE > e.end_date THEN 'completed'
-         WHEN e.start_date IS NOT NULL AND CURRENT_DATE >= e.start_date THEN 'in_progress'
-         ELSE 'upcoming'
-       END,
-       e.updated_at = NOW()
-       WHERE e.partner_id = ?
-         AND e.status != CASE
-           WHEN e.end_date IS NOT NULL AND CURRENT_DATE > e.end_date THEN 'completed'
-           WHEN e.start_date IS NOT NULL AND CURRENT_DATE >= e.start_date THEN 'in_progress'
-           ELSE 'upcoming'
-         END`,
+          SET status = (CASE
+            WHEN e.end_date IS NOT NULL AND CURRENT_DATE > e.end_date THEN 'completed'
+            WHEN e.start_date IS NOT NULL AND CURRENT_DATE >= e.start_date THEN 'in_progress'
+            ELSE 'upcoming'
+          END)::exam_status,
+              updated_at = NOW()
+        WHERE e.partner_id = ?
+          AND e.status::text != (CASE
+            WHEN e.end_date IS NOT NULL AND CURRENT_DATE > e.end_date THEN 'completed'
+            WHEN e.start_date IS NOT NULL AND CURRENT_DATE >= e.start_date THEN 'in_progress'
+            ELSE 'upcoming'
+          END)`,
       [ctx.partnerUserId]
     )
 

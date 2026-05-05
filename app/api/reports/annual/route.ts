@@ -61,7 +61,15 @@ export async function GET(request: Request) {
       templateType === "senior" ? ["final_annual"] : ["mid_term", "final_annual"]
 
     // ── Pull exams needed by this template (must exist AND be completed) ──
+    // requiredTypes is a hardcoded list (one of two literal arrays); safe to
+    // inline into the ORDER BY CASE. Postgres has no FIELD() function, and
+    // exam_type is an ENUM that needs ::text before we compare against
+    // string literals.
     const typePlaceholders = requiredTypes.map(() => "?").join(",")
+    const orderCase =
+      "CASE exam_type::text " +
+      requiredTypes.map((t, i) => `WHEN '${t}' THEN ${i}`).join(" ") +
+      " ELSE 99 END"
     const exams = await executeQuery<{
       id: number
       name: string
@@ -71,9 +79,9 @@ export async function GET(request: Request) {
       end_date: string
     }[]>(
       `SELECT id, name, exam_type, status, start_date, end_date FROM erp_exams
-       WHERE class_section_id = ? AND exam_type IN (${typePlaceholders})
-       ORDER BY FIELD(exam_type, ${typePlaceholders}), start_date, id`,
-      [student.class_section_id, ...requiredTypes, ...requiredTypes]
+       WHERE class_section_id = ? AND exam_type::text IN (${typePlaceholders})
+       ORDER BY ${orderCase}, start_date, id`,
+      [student.class_section_id, ...requiredTypes]
     )
 
     // Gate: every required type must be present AND status='completed'.

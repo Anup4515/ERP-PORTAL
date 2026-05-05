@@ -28,7 +28,7 @@ export async function GET(request: Request) {
        JOIN sections sec ON sec.id = ecs.section_id
        LEFT JOIN erp_subjects sub ON sub.id = ts.subject_id
        WHERE ts.teacher_id = ? AND es.id = ?
-       ORDER BY FIELD(ts.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'), ts.period_number`,
+       ORDER BY ts.day_of_week ASC, ts.period_number ASC`,
       [ctx.userId, sess.sessionId]
     )
 
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
            LEFT JOIN users u ON u.id = ts.teacher_id
            LEFT JOIN partner_staff ps ON ps.id = ts.staff_id
            WHERE ts.class_section_id = ?
-           ORDER BY FIELD(ts.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'), ts.period_number`,
+           ORDER BY ts.day_of_week ASC, ts.period_number ASC`,
           [classSectionId]
         ) as any[]
       }

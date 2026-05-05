@@ -154,12 +154,12 @@ export async function POST(request: Request) {
       // keeps the cache correct even after partial-payment corrections.
       await connection.execute(
         `UPDATE erp_fee_dues d
-            SET d.amount_paid = (
+            SET amount_paid = (
               SELECT COALESCE(SUM(p.amount), 0)
                 FROM erp_fee_payments p
                WHERE p.due_id = d.id
             ),
-            d.status = CASE
+            status = CASE
               WHEN d.status = 'waived' THEN 'waived'
               WHEN (
                 SELECT COALESCE(SUM(p.amount), 0)

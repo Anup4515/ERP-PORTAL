@@ -91,16 +91,20 @@ export async function PUT(
         // First, clear existing class teacher / second incharge assignments for this teacher
         await connection.execute(
           `UPDATE erp_class_sections ecs
-           JOIN erp_sessions es ON es.id = ecs.session_id
-           SET ecs.class_teacher_id = NULL, ecs.updated_at = NOW()
-           WHERE ecs.class_teacher_id = ? AND es.partner_id = ?`,
+              SET class_teacher_id = NULL, updated_at = NOW()
+             FROM erp_sessions es
+            WHERE es.id = ecs.session_id
+              AND ecs.class_teacher_id = ?
+              AND es.partner_id = ?`,
           [teacherUserId, ctx.partnerUserId]
         )
         await connection.execute(
           `UPDATE erp_class_sections ecs
-           JOIN erp_sessions es ON es.id = ecs.session_id
-           SET ecs.second_incharge_id = NULL, ecs.updated_at = NOW()
-           WHERE ecs.second_incharge_id = ? AND es.partner_id = ?`,
+              SET second_incharge_id = NULL, updated_at = NOW()
+             FROM erp_sessions es
+            WHERE es.id = ecs.session_id
+              AND ecs.second_incharge_id = ?
+              AND es.partner_id = ?`,
           [teacherUserId, ctx.partnerUserId]
         )
 
@@ -161,10 +165,12 @@ export async function PUT(
         // Clear existing subject assignments for this teacher
         await connection.execute(
           `UPDATE erp_subjects sub
-           JOIN erp_class_sections ecs ON ecs.id = sub.class_section_id
-           JOIN erp_sessions es ON es.id = ecs.session_id
-           SET sub.teacher_id = NULL, sub.updated_at = NOW()
-           WHERE sub.teacher_id = ? AND es.partner_id = ?`,
+              SET teacher_id = NULL, updated_at = NOW()
+             FROM erp_class_sections ecs
+             JOIN erp_sessions es ON es.id = ecs.session_id
+            WHERE ecs.id = sub.class_section_id
+              AND sub.teacher_id = ?
+              AND es.partner_id = ?`,
           [teacherUserId, ctx.partnerUserId]
         )
 
